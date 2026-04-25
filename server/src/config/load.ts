@@ -52,9 +52,18 @@ interface RawConfig {
   };
 }
 
+export interface LoadConfigOptions {
+  /** When true (default false), silently skip providers whose env vars are
+   *  missing instead of throwing. Use for server startup; tests use strict. */
+  soft?: boolean;
+  /** Receives diagnostics about skipped providers (soft mode only). */
+  onWarn?: (msg: string) => void;
+}
+
 export function loadConfig(
   path: string,
   env: Record<string, string | undefined> = process.env,
+  options: LoadConfigOptions = {},
 ): B3Config {
   const raw = TOML.parse(readFileSync(path, "utf-8")) as unknown as RawConfig;
   const providers: ProviderConfig[] = [];
@@ -63,8 +72,18 @@ export function loadConfig(
     const blocks = raw.providers?.[harness] ?? [];
     for (const b of blocks) {
       const interpolatedEnv: Record<string, string> = {};
-      for (const [k, v] of Object.entries(b.env ?? {})) {
-        interpolatedEnv[k] = interpolate(String(v), env);
+      try {
+        for (const [k, v] of Object.entries(b.env ?? {})) {
+          interpolatedEnv[k] = interpolate(String(v), env);
+        }
+      } catch (e) {
+        if (options.soft) {
+          options.onWarn?.(
+            `skipping provider ${harness}:${b.id} — ${(e as Error).message}`,
+          );
+          continue;
+        }
+        throw e;
       }
       providers.push({
         harness,
@@ -98,10 +117,11 @@ const BUNDLED_DEFAULT = resolve(__dirname, "default.toml");
 export function loadConfigOrInit(
   path: string = getDefaultConfigPath(),
   env: Record<string, string | undefined> = process.env,
+  options: LoadConfigOptions = { soft: true },
 ): B3Config {
   if (!existsSync(path)) {
     mkdirSync(dirname(path), { recursive: true });
     copyFileSync(BUNDLED_DEFAULT, path);
   }
-  return loadConfig(path, env);
+  return loadConfig(path, env, options);
 }
