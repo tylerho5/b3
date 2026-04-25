@@ -1,0 +1,210 @@
+.runs-page {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.launcher {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.launcher-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.launcher-row .launcher-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  min-width: 80px;
+}
+.launcher-row select,
+.launcher-row input[type="number"] {
+  min-width: 200px;
+}
+.launcher-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.launcher-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+.chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 12px;
+}
+
+.session-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cat-plugin);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.session-card.codex {
+  border-left-color: var(--cat-user);
+}
+.session-card.selected {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+}
+.session-card.failed {
+  border-left-color: var(--error);
+}
+.session-card.passed {
+  border-left-color: var(--success);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+}
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--text-muted);
+}
+.status-dot.running {
+  background: var(--success);
+  animation: pulse 1s ease-in-out infinite;
+}
+.status-dot.testing {
+  background: var(--warning);
+}
+.status-dot.passed {
+  background: var(--success);
+}
+.status-dot.failed,
+.status-dot.error {
+  background: var(--error);
+}
+.status-dot.canceled {
+  background: var(--text-muted);
+}
+
+.card-counters {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.spark-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.tool-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-family: var(--font-mono);
+}
+.tool-strip .tool-badge {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.skill-line,
+.tail-line {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-message {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.card-message input {
+  flex: 1;
+  font-size: 11px;
+}
+
+.broadcast-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.broadcast-bar input[type="text"] {
+  flex: 1;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.history-row {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.history-row:hover {
+  border-color: var(--accent);
+}
