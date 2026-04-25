@@ -23,6 +23,7 @@ import type {
   SessionHandle,
 } from "../adapters/types";
 import type { ModelCard, ProviderConfig } from "../config/types";
+import { runTestPhase as defaultRunTestPhase } from "./testRunner";
 
 export interface RunOneInput {
   db: DB;
@@ -166,9 +167,10 @@ export async function runOne(input: RunOneInput): Promise<void> {
       // Test phase
       let testsPassed: boolean | null = null;
       let testLogPath: string | null = null;
-      if (testCommand && input.runTestPhase) {
+      if (testCommand) {
         updateRunStatus(db, runId, "testing");
-        const result = await input.runTestPhase({
+        const phase = input.runTestPhase ?? defaultRunTestPhase;
+        const result = await phase({
           workdir: wt.workdir,
           testCommand,
           timeoutMs: 60_000,
