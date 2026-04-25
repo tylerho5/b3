@@ -127,10 +127,17 @@ export async function handleRequest(
 
   // Providers
   if (path === "/api/providers" && method === "GET") {
+    let tomlText: string | null = null;
+    try {
+      tomlText = readFileSync(app.configPath, "utf-8");
+    } catch {
+      tomlText = null;
+    }
     return json({
       version: app.config.version,
       judge: app.config.judge,
       providers: app.config.providers,
+      tomlText,
     });
   }
   if (path === "/api/providers" && method === "PUT") {

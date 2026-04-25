@@ -73,6 +73,7 @@ export const api = {
     version: number;
     judge: { template: string };
     providers: ProviderConfig[];
+    tomlText: string | null;
   }> {
     return jsonOrThrow(await fetch("/api/providers"));
   },
