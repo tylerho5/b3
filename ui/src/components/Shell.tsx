@@ -6,7 +6,6 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="app">
       <header className="app-header">
         <span className="wordmark">b3</span>
-        <span className="header-status">bench bench bench</span>
       </header>
       <div className="app-body">
         <NavRail />
