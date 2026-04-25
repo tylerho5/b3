@@ -1,8 +1,18 @@
 import { test, expect } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  lstatSync,
+  readlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discoverSkills } from "../src/skills/registry";
+import { discoverSkills, type SkillBundle } from "../src/skills/registry";
+import { materializeSkills } from "../src/skills/materialize";
 
 function makeFakeHome() {
   const home = mkdtempSync(join(tmpdir(), "b3-skills-home-"));
@@ -150,6 +160,117 @@ test("discovers ~/.codex/skills and ~/.agents/skills", () => {
     const ag = found.find((s) => s.name === "ag")!;
     expect(cx.source).toBe("user_codex");
     expect(ag.source).toBe("user_agents");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+function makeBundle(
+  rootDir: string,
+  name: string,
+  body = "Body.",
+  extra?: Record<string, string>,
+): SkillBundle {
+  const dir = join(rootDir, name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "SKILL.md"),
+    `---\nname: ${name}\ndescription: d\n---\n\n${body}`,
+  );
+  if (extra) {
+    for (const [rel, content] of Object.entries(extra)) {
+      const p = join(dir, rel);
+      mkdirSync(join(p, ".."), { recursive: true });
+      writeFileSync(p, content);
+    }
+  }
+  return {
+    id: `user_claude:${name}`,
+    name,
+    description: "d",
+    source: "user_claude",
+    sourceLabel: "user",
+    path: dir,
+  };
+}
+
+test("materializeSkills(copy) creates SKILL.md in both .claude/skills and .agents/skills", async () => {
+  const home = makeFakeHome();
+  try {
+    const src = join(home, "src");
+    mkdirSync(src, { recursive: true });
+    const b = makeBundle(src, "alpha", "alpha body");
+    const workdir = join(home, "workdir");
+    mkdirSync(workdir, { recursive: true });
+    await materializeSkills(workdir, [b], "copy");
+    const claudeMd = join(workdir, ".claude/skills/alpha/SKILL.md");
+    const agentsMd = join(workdir, ".agents/skills/alpha/SKILL.md");
+    expect(existsSync(claudeMd)).toBe(true);
+    expect(existsSync(agentsMd)).toBe(true);
+    expect(readFileSync(claudeMd, "utf-8")).toContain("alpha body");
+    expect(lstatSync(claudeMd).isSymbolicLink()).toBe(false);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("materializeSkills(copy) preserves multi-file structure", async () => {
+  const home = makeFakeHome();
+  try {
+    const src = join(home, "src");
+    mkdirSync(src, { recursive: true });
+    const b = makeBundle(src, "multi", "body", {
+      "scripts/foo.sh": "#!/bin/bash\necho hi\n",
+      "ref/notes.md": "# notes",
+    });
+    const workdir = join(home, "workdir");
+    mkdirSync(workdir, { recursive: true });
+    await materializeSkills(workdir, [b], "copy");
+    expect(
+      existsSync(join(workdir, ".claude/skills/multi/scripts/foo.sh")),
+    ).toBe(true);
+    expect(
+      existsSync(join(workdir, ".agents/skills/multi/ref/notes.md")),
+    ).toBe(true);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("materializeSkills(symlink) creates symlinks", async () => {
+  const home = makeFakeHome();
+  try {
+    const src = join(home, "src");
+    mkdirSync(src, { recursive: true });
+    const b = makeBundle(src, "linky");
+    const workdir = join(home, "workdir");
+    mkdirSync(workdir, { recursive: true });
+    await materializeSkills(workdir, [b], "symlink");
+    const claudePath = join(workdir, ".claude/skills/linky");
+    const agentsPath = join(workdir, ".agents/skills/linky");
+    expect(lstatSync(claudePath).isSymbolicLink()).toBe(true);
+    expect(lstatSync(agentsPath).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(claudePath)).toBe(b.path);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("name collision throws before copying anything", async () => {
+  const home = makeFakeHome();
+  try {
+    const src = join(home, "src");
+    mkdirSync(src, { recursive: true });
+    const b1 = makeBundle(src, "dup");
+    const src2 = join(home, "src2");
+    mkdirSync(src2, { recursive: true });
+    const b2: SkillBundle = { ...makeBundle(src2, "dup"), source: "plugin" };
+    const workdir = join(home, "workdir");
+    mkdirSync(workdir, { recursive: true });
+    await expect(materializeSkills(workdir, [b1, b2], "copy")).rejects.toThrow(
+      /collision/i,
+    );
+    expect(existsSync(join(workdir, ".claude/skills/dup"))).toBe(false);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
