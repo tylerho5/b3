@@ -23,7 +23,7 @@ bun install
 bun dev
 ```
 
-Then open `http://localhost:5173` (Vite dev server proxies `/api` and `/ws` to
+Then open `http://localhost:6767` (Vite dev server proxies `/api` and `/ws` to
 the backend on `127.0.0.1:4477`).
 
 See `.claude/plans/2026-04-25-b3-design.md` for the full design.
