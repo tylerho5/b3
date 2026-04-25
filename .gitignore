@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+runs/
+b3.db
+b3.db-*
+.env
+.env.local
+.claude/
