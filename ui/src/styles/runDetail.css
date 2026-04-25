@@ -1,0 +1,111 @@
+.run-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+.run-detail-left,
+.run-detail-right {
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.run-detail-left {
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.run-detail h2 {
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.run-detail-section {
+  margin-bottom: 20px;
+}
+.run-detail-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.transcript-segment {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.transcript-segment.kind-broadcast {
+  border-left: 3px solid var(--cat-user);
+}
+.transcript-segment.kind-followup {
+  border-left: 3px solid var(--accent);
+}
+.transcript-segment .seg-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.transcript-event {
+  font-size: 12px;
+  margin-bottom: 4px;
+  line-height: 1.45;
+  font-family: var(--font-mono);
+}
+.transcript-event .role {
+  display: inline-block;
+  min-width: 80px;
+  font-weight: 500;
+}
+.transcript-event.user .role {
+  color: var(--accent);
+}
+.transcript-event.tool .role {
+  color: var(--text-muted);
+}
+
+.diff-view {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre;
+  overflow-x: auto;
+  padding: 10px 12px;
+  max-height: 60vh;
+}
+.diff-view .add {
+  color: var(--success);
+}
+.diff-view .del {
+  color: var(--error);
+}
+.diff-view .hunk {
+  color: var(--text-muted);
+}
+
+.judge-panel textarea {
+  width: 100%;
+  min-height: 100px;
+}
+.judge-panel pre {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow: auto;
+}
+.judge-panel .row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}

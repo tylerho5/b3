@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { NormalizedEvent, Run } from "../types/shared";
 import { Sparkline } from "./Sparkline";
 import { ToolStrip } from "./ToolStrip";
@@ -64,9 +65,13 @@ export function SessionCard({
   return (
     <div className={cls} onClick={onSelect}>
       <div className="card-head">
-        <span>
+        <Link
+          to={`/runs/${run.matrixRunId}/${run.id}`}
+          onClick={(e) => e.stopPropagation()}
+          style={{ color: "inherit", textDecoration: "none" }}
+        >
           {run.harness} · {run.modelId}
-        </span>
+        </Link>
         <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
           <span className={`status-dot ${run.status}`}></span>
           {run.status} {elapsedS}s
