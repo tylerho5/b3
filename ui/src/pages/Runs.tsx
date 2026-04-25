@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { MatrixRun, ProviderConfig, Run } from "../types/shared";
 import { MatrixLauncher } from "../components/MatrixLauncher";
 import { SessionCard } from "../components/SessionCard";
+import { BroadcastBar } from "../components/BroadcastBar";
 import { useEvents } from "../hooks/useEvents";
 import "../styles/runs.css";
 
@@ -164,6 +165,13 @@ function ActiveMatrix({
           </button>
         </div>
       </div>
+      <BroadcastBar
+        matrixRunId={matrixRunId}
+        selectedCount={selected.size}
+        onSent={() => {
+          // no-op; events arrive via WS
+        }}
+      />
       <div className="cards-grid">
         {cells.map((c) => (
           <SessionCard
