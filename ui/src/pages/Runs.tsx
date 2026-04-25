@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { MatrixRun, Run } from "../types/shared";
+import type { MatrixRun, ProviderConfig, Run } from "../types/shared";
 import { MatrixLauncher } from "../components/MatrixLauncher";
+import { SessionCard } from "../components/SessionCard";
+import { useEvents } from "../hooks/useEvents";
 import "../styles/runs.css";
 
 export function Runs() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeCells, setActiveCells] = useState<Run[] | null>(null);
   const [history, setHistory] = useState<MatrixRun[]>([]);
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const refreshHistory = async () => {
     try {
@@ -20,6 +26,7 @@ export function Runs() {
 
   useEffect(() => {
     void refreshHistory();
+    void api.getProviders().then((p) => setProviders(p.providers));
   }, []);
 
   useEffect(() => {
@@ -49,6 +56,7 @@ export function Runs() {
       <MatrixLauncher
         onLaunched={(id) => {
           setActiveId(id);
+          setSelectedRunIds(new Set());
           void refreshHistory();
         }}
       />
@@ -57,6 +65,16 @@ export function Runs() {
         <ActiveMatrix
           matrixRunId={activeId}
           cells={activeCells ?? []}
+          providers={providers}
+          selected={selectedRunIds}
+          onToggleSelect={(id) =>
+            setSelectedRunIds((s) => {
+              const next = new Set(s);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
           onClose={() => {
             setActiveId(null);
             void refreshHistory();
@@ -107,31 +125,59 @@ export function Runs() {
 function ActiveMatrix({
   matrixRunId,
   cells,
+  providers,
+  selected,
+  onToggleSelect,
   onClose,
 }: {
   matrixRunId: string;
   cells: Run[];
+  providers: ProviderConfig[];
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
   onClose: () => void;
 }) {
+  const stream = useEvents(matrixRunId);
+  const pricingByProvider = (id: string) =>
+    providers.find((p) => p.id === id)?.pricingMode ?? "unknown";
+
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <strong style={{ fontSize: 13 }}>matrix {matrixRunId}</strong>
         <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-          {cells.length} cell{cells.length === 1 ? "" : "s"}
+          {cells.length} cell{cells.length === 1 ? "" : "s"} ·{" "}
+          {stream.connected ? "live" : "(reconnecting…)"}
         </span>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button
             type="button"
             className="secondary"
-            onClick={onClose}
+            onClick={() => {
+              void api.cancel(matrixRunId);
+            }}
           >
-            done
+            cancel
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            close
           </button>
         </div>
       </div>
-      <div className="placeholder" style={{ padding: 20 }}>
-        live session cards arrive in Task 7.5
+      <div className="cards-grid">
+        {cells.map((c) => (
+          <SessionCard
+            key={c.id}
+            run={c}
+            events={stream.byRunId[c.id] ?? []}
+            selected={selected.has(c.id)}
+            onSelect={() => onToggleSelect(c.id)}
+            onSendMessage={(text) =>
+              api.sendMessage(matrixRunId, c.id, text)
+            }
+            pricingMode={pricingByProvider(c.providerId)}
+          />
+        ))}
       </div>
     </section>
   );
