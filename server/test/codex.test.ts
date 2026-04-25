@@ -34,7 +34,7 @@ test.skipIf(!HAVE_CODEX)(
         env: {},
         models: [],
       },
-      model: { id: "gpt-5" },
+      model: { id: "gpt-5.4" },
       skills: [],
       onEvent: (ev) => events.push(ev),
     });
@@ -49,16 +49,11 @@ test.skipIf(!HAVE_CODEX)(
     const types = events.map((e) => e.t);
     expect(types).toContain("session_init");
     expect(types).toContain("turn_start");
+    expect(types).toContain("assistant_text");
     expect(types).toContain("segment_end");
     expect(handle.sessionId).toBeTruthy();
-    // assistant_text only verifiable when the chat completes successfully;
-    // the user's codex/ChatGPT auth model availability is environment-
-    // dependent. If we received any non-error events past turn_start, we got
-    // a working completion — assert assistant_text in that case.
-    const hadError = events.some((e) => e.t === "error");
-    if (!hadError) {
-      expect(types).toContain("assistant_text");
-    }
+    const usage = events.find((e) => e.t === "usage");
+    expect(usage).toBeDefined();
   },
   120_000,
 );
