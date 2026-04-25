@@ -1,0 +1,110 @@
+# b3 config — default. Hand-edit, or use the Providers UI.
+# Secrets stay in your shell environment (~/.zshrc); b3 never persists them.
+version = 1
+
+[judge]
+template = """
+I want you to score an AI coding agent's run.
+
+Task: {task_name}
+Prompt:
+{task_prompt}
+
+Test command: `{test_command}`
+Tests: {test_status}
+
+Run artifacts at: {run_path}/
+  - workdir/        — final state of the agent's working tree
+  - workdir.diff    — git diff vs. base commit
+  - transcript.md   — full agent transcript
+  - test.log        — test output
+  - events.jsonl    — structured event stream
+  - meta.json       — harness, model, provider, usage, durations
+
+Please:
+  1. Read the transcript and diff.
+  2. Score 1–5 on (a) solution quality, (b) diff minimality, (c) agent efficiency.
+  3. Flag concerning patterns (hallucinated APIs, needless refactors, skipped tests).
+"""
+
+# =========================
+#   CLAUDE CODE providers
+# =========================
+
+[[providers.claude_code]]
+id = "anthropic-direct"
+label = "Anthropic (direct)"
+pricing_mode = "per_token"
+env.ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
+models = [
+  { id = "claude-opus-4-7",   tier = "opus",   input_cost_per_mtok = 15.0,  output_cost_per_mtok = 75.0 },
+  { id = "claude-sonnet-4-6", tier = "sonnet", input_cost_per_mtok = 3.0,   output_cost_per_mtok = 15.0 },
+  { id = "claude-haiku-4-5",  tier = "haiku",  input_cost_per_mtok = 0.80,  output_cost_per_mtok = 4.0 },
+]
+
+[[providers.claude_code]]
+id = "alibaba-coding"
+label = "Alibaba Coding Plan"
+pricing_mode = "subscription"
+env.ANTHROPIC_BASE_URL   = "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic"
+env.ANTHROPIC_AUTH_TOKEN = "${ALIBABA_CLAUDE_CODE_API_KEY}"
+models = [
+  { id = "qwen3.5-plus" },
+  { id = "kimi-k2.5" },
+  { id = "glm-5" },
+  { id = "MiniMax-M2.5" },
+  { id = "qwen3-max-2026-01-23" },
+  { id = "qwen3-coder-next" },
+  { id = "glm-4.7" },
+]
+
+[[providers.claude_code]]
+id = "zai-glm"
+label = "z.ai (GLM native)"
+pricing_mode = "subscription"
+env.ANTHROPIC_BASE_URL   = "https://api.z.ai/api/anthropic"
+env.ANTHROPIC_AUTH_TOKEN = "${GLM_API_KEY}"
+models = [
+  { id = "glm-5.1" },
+  { id = "glm-4.6" },
+]
+
+[[providers.claude_code]]
+id = "openrouter-claude"
+label = "OpenRouter (Claude Code)"
+pricing_mode = "per_token"
+env.ANTHROPIC_BASE_URL   = "https://openrouter.ai/api"
+env.ANTHROPIC_AUTH_TOKEN = "${OPENROUTER_CLAUDE_CODE_API_KEY}"
+models = [
+  { id = "anthropic/claude-sonnet-4.6", input_cost_per_mtok = 3.0,  output_cost_per_mtok = 15.0 },
+  { id = "anthropic/claude-opus-4.7",   input_cost_per_mtok = 15.0, output_cost_per_mtok = 75.0 },
+  { id = "google/gemini-3-pro",         input_cost_per_mtok = 1.25, output_cost_per_mtok = 5.0  },
+  { id = "deepseek/deepseek-v4",        input_cost_per_mtok = 0.14, output_cost_per_mtok = 0.28 },
+]
+
+# =========================
+#   CODEX providers
+# =========================
+
+[[providers.codex]]
+id = "openai-direct"
+label = "OpenAI (direct)"
+pricing_mode = "subscription"
+env.OPENAI_API_KEY = "${OPENAI_API_KEY}"
+models = [
+  { id = "gpt-5.5" },
+  { id = "gpt-5.4" },
+  { id = "o5-pro" },
+]
+
+[[providers.codex]]
+id = "openrouter-codex"
+label = "OpenRouter (via Codex)"
+pricing_mode = "per_token"
+codex_profile = "openrouter"
+models = [
+  { id = "z-ai/glm-4.6",        input_cost_per_mtok = 0.50, output_cost_per_mtok = 2.0 },
+  { id = "qwen/qwen3-coder",    input_cost_per_mtok = 0.40, output_cost_per_mtok = 1.6 },
+  { id = "moonshot/kimi-k2",    input_cost_per_mtok = 0.45, output_cost_per_mtok = 1.8 },
+  { id = "deepseek/deepseek-v4",input_cost_per_mtok = 0.14, output_cost_per_mtok = 0.28 },
+]

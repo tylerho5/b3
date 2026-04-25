@@ -1,0 +1,31 @@
+version = 1
+
+[judge]
+template = "score the run"
+
+[[providers.claude_code]]
+id = "anthropic-direct"
+label = "Anthropic (direct)"
+pricing_mode = "per_token"
+env.ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
+models = [
+  { id = "claude-haiku-4-5", tier = "haiku", input_cost_per_mtok = 0.80, output_cost_per_mtok = 4.0 },
+]
+
+[[providers.claude_code]]
+id = "alibaba-coding"
+label = "Alibaba Coding"
+pricing_mode = "subscription"
+env.ANTHROPIC_BASE_URL = "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic"
+env.ANTHROPIC_AUTH_TOKEN = "${ALIBABA_CLAUDE_CODE_API_KEY}"
+models = [
+  { id = "glm-5" },
+]
+
+[[providers.codex]]
+id = "openrouter-codex"
+label = "OpenRouter (Codex)"
+codex_profile = "openrouter"
+models = [
+  { id = "z-ai/glm-4.6", input_cost_per_mtok = 0.50, output_cost_per_mtok = 2.0 },
+]
