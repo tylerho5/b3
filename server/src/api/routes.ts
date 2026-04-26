@@ -295,6 +295,18 @@ export async function handleRequest(
     return json(result);
   }
 
+  // Subscriptions
+  if (path === "/api/subscriptions/status" && method === "GET") {
+    const harness = url.searchParams.get("harness");
+    if (harness === "claude_code") {
+      return json(detectClaudeSubscription());
+    }
+    if (harness === "codex") {
+      return json(detectCodexSubscription());
+    }
+    return badRequest("harness must be claude_code or codex");
+  }
+
   // Settings
   if (path === "/api/settings/judge" && method === "GET") {
     return json({ template: getSetting(app.db, "judge_template") });
