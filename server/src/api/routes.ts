@@ -48,6 +48,7 @@ import {
   serializeToToml,
   snapshotForExport,
 } from "../providers/tomlSerde";
+import { getSetting, putSetting } from "../db/appSettings";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -292,6 +293,19 @@ export async function handleRequest(
     if (!provider) return notFound();
     const result = await probeProvider(provider);
     return json(result);
+  }
+
+  // Settings
+  if (path === "/api/settings/judge" && method === "GET") {
+    return json({ template: getSetting(app.db, "judge_template") });
+  }
+  if (path === "/api/settings/judge" && method === "PUT") {
+    const body = await readBody<{ template?: string }>(req);
+    if (typeof body?.template !== "string") {
+      return badRequest("template required");
+    }
+    putSetting(app.db, "judge_template", body.template);
+    return json({ ok: true });
   }
 
   // Skills
