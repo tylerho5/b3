@@ -13,7 +13,7 @@ function probeClaude(): boolean {
     return false;
   }
 }
-const HAVE_CLAUDE = probeClaude();
+const HAVE_CLAUDE = probeClaude() && !process.env.B3_SKIP_CLI_TESTS;
 
 function setupRepo(): string {
   const dir = mkdtempSync(join(tmpdir(), "b3-cc-"));

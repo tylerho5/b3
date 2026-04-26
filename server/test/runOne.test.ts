@@ -23,7 +23,7 @@ function probeClaude(): boolean {
     return false;
   }
 }
-const HAVE_CLAUDE = probeClaude();
+const HAVE_CLAUDE = probeClaude() && !process.env.B3_SKIP_CLI_TESTS;
 
 function setupDb(): { db: DB; cleanup: () => void } {
   const db = openDb(":memory:");

@@ -13,7 +13,7 @@ function probeCodex(): boolean {
     return false;
   }
 }
-const HAVE_CODEX = probeCodex();
+const HAVE_CODEX = probeCodex() && !process.env.B3_SKIP_CLI_TESTS;
 
 test.skipIf(!HAVE_CODEX)(
   "codex adapter spawns and captures thread_id + emits expected events",

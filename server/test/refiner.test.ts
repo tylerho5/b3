@@ -9,7 +9,7 @@ function probeClaude(): boolean {
     return false;
   }
 }
-const HAVE_CLAUDE = probeClaude();
+const HAVE_CLAUDE = probeClaude() && !process.env.B3_SKIP_CLI_TESTS;
 
 test.skipIf(!HAVE_CLAUDE)(
   "refineTask returns valid RefinedTask",

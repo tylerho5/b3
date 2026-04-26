@@ -109,7 +109,7 @@ export function loadConfig(
 }
 
 export function getDefaultConfigPath(home = homedir()): string {
-  return join(home, ".config/b3/config.toml");
+  return process.env.B3_CONFIG_PATH ?? join(home, ".config/b3/config.toml");
 }
 
 const BUNDLED_DEFAULT = resolve(__dirname, "default.toml");

@@ -1,4 +1,3 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import {
@@ -18,6 +17,38 @@ import { listEvents } from "../db/events";
 import { refineTask } from "../refiner/refine";
 import type { AppState } from "../state/app";
 import { launchMatrixRun } from "../orchestrator/launch";
+import {
+  createProvider,
+  deleteProvider,
+  getProvider,
+  listProviders,
+  updateProvider,
+  type ProviderKind,
+} from "../db/providers";
+import {
+  addProviderModels,
+  listAllProviderModels,
+  removeProviderModel,
+  type AddProviderModelInput,
+} from "../db/providerModels";
+import {
+  PROVIDER_KIND_META,
+  requiresBaseUrl,
+  requiresCredentials,
+} from "../providers/kinds";
+import { fetchOpenRouterCatalog } from "../providers/openrouter";
+import {
+  detectClaudeSubscription,
+  detectCodexSubscription,
+} from "../providers/detectSubscription";
+import {
+  applyImportPlan,
+  buildImportPlan,
+  parseTomlPayload,
+  serializeToToml,
+  snapshotForExport,
+} from "../providers/tomlSerde";
+import { getSetting, putSetting } from "../db/appSettings";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -127,24 +158,153 @@ export async function handleRequest(
 
   // Providers
   if (path === "/api/providers" && method === "GET") {
-    let tomlText: string | null = null;
-    try {
-      tomlText = readFileSync(app.configPath, "utf-8");
-    } catch {
-      tomlText = null;
-    }
     return json({
-      version: app.config.version,
-      judge: app.config.judge,
-      providers: app.config.providers,
-      tomlText,
+      providers: listProviders(app.db),
+      models: listAllProviderModels(app.db),
     });
   }
   if (path === "/api/providers" && method === "PUT") {
-    const body = await readBody<{ toml: string }>(req);
-    if (typeof body?.toml !== "string") return badRequest("toml required");
-    writeFileSync(app.configPath, body.toml);
-    app.reloadConfig();
+    return json(
+      { error: "PUT /api/providers removed; use POST/PATCH/DELETE on DB-backed routes" },
+      { status: 410 },
+    );
+  }
+  if (path === "/api/providers" && method === "POST") {
+    const body = await readBody<{
+      name?: string;
+      kind?: string;
+      baseUrl?: string | null;
+      apiKey?: string | null;
+      apiKeyEnvRef?: string | null;
+    }>(req);
+    if (!body?.name || !body?.kind) {
+      return badRequest("name and kind required");
+    }
+    if (!(body.kind in PROVIDER_KIND_META)) {
+      return badRequest(`invalid kind: ${body.kind}`);
+    }
+    const kind = body.kind as ProviderKind;
+    if (requiresBaseUrl(kind) && !body.baseUrl) {
+      return badRequest(`kind ${kind} requires baseUrl`);
+    }
+    if (
+      requiresCredentials(kind) &&
+      !body.apiKey &&
+      !body.apiKeyEnvRef
+    ) {
+      return badRequest(`kind ${kind} requires credentials (apiKey or apiKeyEnvRef)`);
+    }
+    const created = createProvider(app.db, {
+      name: body.name,
+      kind,
+      baseUrl: body.baseUrl ?? null,
+      apiKey: body.apiKey ?? null,
+      apiKeyEnvRef: body.apiKeyEnvRef ?? null,
+    });
+    return json(created);
+  }
+
+  if (path === "/api/providers/export" && method === "GET") {
+    const toml = serializeToToml(snapshotForExport(app.db));
+    return new Response(toml, {
+      status: 200,
+      headers: { "content-type": "application/toml; charset=utf-8" },
+    });
+  }
+  if (path === "/api/providers/import" && method === "POST") {
+    const body = await readBody<{ toml?: string; replace?: boolean }>(req);
+    if (typeof body?.toml !== "string") return badRequest("toml field required");
+    let parsed;
+    try {
+      parsed = parseTomlPayload(body.toml);
+    } catch (e) {
+      return badRequest(`invalid TOML: ${(e as Error).message}`);
+    }
+    const plan = buildImportPlan(parsed);
+    const result = applyImportPlan(app.db, plan, { replace: !!body.replace });
+    return json({ ok: true, ...result });
+  }
+
+  if (path === "/api/providers/openrouter/catalog" && method === "GET") {
+    const providerId = url.searchParams.get("providerId");
+    if (!providerId) return badRequest("providerId required");
+    const provider = getProvider(app.db, providerId);
+    if (!provider || provider.kind !== "openrouter") return notFound();
+    const key = resolveProviderKey(provider);
+    if (!key.ok) return badRequest(key.message);
+    try {
+      const catalog = await fetchOpenRouterCatalog(key.value);
+      return json(catalog);
+    } catch (e) {
+      return json({ error: (e as Error).message }, { status: 502 });
+    }
+  }
+
+  const providerById = path.match(/^\/api\/providers\/([^/]+)$/);
+  if (providerById) {
+    const id = providerById[1];
+    if (method === "PATCH") {
+      const existing = getProvider(app.db, id);
+      if (!existing) return notFound();
+      const body = await readBody<{
+        name?: string;
+        baseUrl?: string | null;
+        apiKey?: string | null;
+        apiKeyEnvRef?: string | null;
+      }>(req);
+      const updated = updateProvider(app.db, id, body);
+      return json(updated);
+    }
+    if (method === "DELETE") {
+      const existing = getProvider(app.db, id);
+      if (!existing) return notFound();
+      deleteProvider(app.db, id);
+      return json({ ok: true });
+    }
+  }
+
+  const providerModels = path.match(/^\/api\/providers\/([^/]+)\/models$/);
+  if (providerModels && method === "POST") {
+    const id = providerModels[1];
+    if (!getProvider(app.db, id)) return notFound();
+    const body = await readBody<{ models?: AddProviderModelInput[] }>(req);
+    if (!Array.isArray(body?.models)) {
+      return badRequest("models array required");
+    }
+    const added = addProviderModels(app.db, id, body.models);
+    return json({ models: added });
+  }
+
+  const providerModelById = path.match(
+    /^\/api\/providers\/([^/]+)\/models\/(.+)$/,
+  );
+  if (providerModelById && method === "DELETE") {
+    const [, id, encodedModelId] = providerModelById;
+    if (!getProvider(app.db, id)) return notFound();
+    const modelId = decodeURIComponent(encodedModelId);
+    removeProviderModel(app.db, id, modelId);
+    return json({ ok: true });
+  }
+
+  const providerProbe = path.match(/^\/api\/providers\/([^/]+)\/probe$/);
+  if (providerProbe && method === "POST") {
+    const id = providerProbe[1];
+    const provider = getProvider(app.db, id);
+    if (!provider) return notFound();
+    const result = await probeProvider(provider);
+    return json(result);
+  }
+
+  // Settings
+  if (path === "/api/settings/judge" && method === "GET") {
+    return json({ template: getSetting(app.db, "judge_template") });
+  }
+  if (path === "/api/settings/judge" && method === "PUT") {
+    const body = await readBody<{ template?: string }>(req);
+    if (typeof body?.template !== "string") {
+      return badRequest("template required");
+    }
+    putSetting(app.db, "judge_template", body.template);
     return json({ ok: true });
   }
 
@@ -324,4 +484,103 @@ async function deliverPerSession(
   if (!inject) return false;
   await inject(text);
   return true;
+}
+
+interface ProbeResult {
+  ok: boolean;
+  message: string;
+  modelCount?: number;
+  installed?: boolean;
+  authenticated?: boolean;
+  version?: string;
+}
+
+async function probeProvider(
+  provider: import("../db/providers").Provider,
+): Promise<ProbeResult> {
+  switch (provider.kind) {
+    case "openrouter": {
+      const key = resolveProviderKey(provider);
+      if (!key.ok) return { ok: false, message: key.message };
+      try {
+        const cat = await fetchOpenRouterCatalog(key.value);
+        return {
+          ok: true,
+          message: "ok",
+          modelCount: cat.data.length,
+        };
+      } catch (e) {
+        return { ok: false, message: (e as Error).message };
+      }
+    }
+    case "claude_subscription": {
+      const s = detectClaudeSubscription();
+      return {
+        ok: s.installed && s.authenticated,
+        message:
+          !s.installed
+            ? "claude CLI not on PATH"
+            : !s.authenticated
+              ? "claude CLI not authenticated (run `claude login`)"
+              : "ok",
+        installed: s.installed,
+        authenticated: s.authenticated,
+        version: s.version,
+      };
+    }
+    case "codex_subscription": {
+      const s = detectCodexSubscription();
+      return {
+        ok: s.installed && s.authenticated,
+        message:
+          !s.installed
+            ? "codex CLI not on PATH"
+            : !s.authenticated
+              ? "codex CLI not authenticated (run `codex login`)"
+              : "ok",
+        installed: s.installed,
+        authenticated: s.authenticated,
+        version: s.version,
+      };
+    }
+    case "anthropic_api_direct":
+    case "openai_api_direct": {
+      const key = resolveProviderKey(provider);
+      return key.ok
+        ? { ok: true, message: "credentials present" }
+        : { ok: false, message: key.message };
+    }
+    case "custom_anthropic_compat":
+    case "custom_openai_compat": {
+      if (!provider.baseUrl) {
+        return { ok: false, message: "baseUrl missing" };
+      }
+      try {
+        new URL(provider.baseUrl);
+      } catch {
+        return { ok: false, message: `invalid base url: ${provider.baseUrl}` };
+      }
+      const key = resolveProviderKey(provider);
+      return key.ok
+        ? { ok: true, message: "credentials present and base url valid" }
+        : { ok: false, message: key.message };
+    }
+  }
+}
+
+function resolveProviderKey(
+  provider: import("../db/providers").Provider,
+): { ok: true; value: string } | { ok: false; message: string } {
+  if (provider.apiKey) return { ok: true, value: provider.apiKey };
+  if (provider.apiKeyEnvRef) {
+    const v = process.env[provider.apiKeyEnvRef];
+    if (!v) {
+      return {
+        ok: false,
+        message: `env var ${provider.apiKeyEnvRef} is not set in the server environment`,
+      };
+    }
+    return { ok: true, value: v };
+  }
+  return { ok: false, message: "no credentials configured" };
 }

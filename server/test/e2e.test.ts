@@ -21,7 +21,7 @@ function probeClaude(): boolean {
     return false;
   }
 }
-const HAVE_CLAUDE = probeClaude();
+const HAVE_CLAUDE = probeClaude() && !process.env.B3_SKIP_CLI_TESTS;
 
 // No env interpolation in fixture — the test relies on the user's existing
 // claude CLI auth (OAuth keychain). The empty env block is intentional.
