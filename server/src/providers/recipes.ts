@@ -1,5 +1,4 @@
-import type { Harness } from "../config/types";
-import type { Provider } from "../db/providers";
+import type { Harness, Provider } from "../db/providers";
 import type { ProviderModel } from "../db/providerModels";
 import { PROVIDER_KIND_META } from "./kinds";
 
@@ -20,10 +19,12 @@ export function buildSpawnEnv(
     );
   }
 
-  if (
-    provider.kind === "claude_subscription" ||
-    provider.kind === "codex_subscription"
-  ) {
+  if (provider.kind === "claude_subscription") {
+    const env: SpawnEnv = {};
+    applyModelEnv(env, model);
+    return env;
+  }
+  if (provider.kind === "codex_subscription") {
     return {};
   }
 

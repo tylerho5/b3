@@ -443,7 +443,7 @@ export async function handleRequest(
     const task = getTask(app.db, m.matrixRun.taskId);
     if (!task) return notFound();
     const runDir = join(app.runsRoot, runId);
-    const tmpl = app.config.judge.template
+    const tmpl = (getSetting(app.db, "judge_template") ?? "")
       .replace("{task_name}", task.name)
       .replace("{task_prompt}", task.prompt)
       .replace("{test_command}", task.testCommand ?? "")

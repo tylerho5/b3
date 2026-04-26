@@ -3,6 +3,11 @@ import {
   createRun,
   updateRunStatus,
 } from "../db/runs";
+import { getProvider, type Harness, type Provider } from "../db/providers";
+import {
+  getProviderModel,
+  type ProviderModel,
+} from "../db/providerModels";
 import { getTask } from "../db/tasks";
 import { runOne } from "./runOne";
 import { runMatrix } from "./runMatrix";
@@ -10,7 +15,6 @@ import { BroadcastQueue } from "./broadcast";
 import { ClaudeCodeAdapter } from "../adapters/claudeCode";
 import { CodexAdapter } from "../adapters/codex";
 import type { AppState, ActiveMatrix } from "../state/app";
-import type { Harness, ProviderConfig } from "../config/types";
 import type { HarnessAdapter, NormalizedEvent } from "../adapters/types";
 import type { MaterializeMode } from "../skills/materialize";
 
@@ -24,8 +28,8 @@ export interface LaunchInput {
 interface RunCellSpec {
   runId: string;
   harness: Harness;
-  provider: ProviderConfig;
-  modelId: string;
+  provider: Provider;
+  model: ProviderModel;
 }
 
 function adapterFor(harness: Harness): HarnessAdapter {
@@ -47,12 +51,14 @@ export function launchMatrixRun(
 
   const cellSpecs: RunCellSpec[] = [];
   for (const cell of input.matrix) {
-    const provider = app.config.providers.find(
-      (p) => p.harness === cell.harness && p.id === cell.providerId,
-    );
+    const provider = getProvider(app.db, cell.providerId);
     if (!provider) {
+      throw new Error(`Provider not found: ${cell.providerId}`);
+    }
+    const model = getProviderModel(app.db, cell.providerId, cell.modelId);
+    if (!model) {
       throw new Error(
-        `Provider not found: ${cell.harness}:${cell.providerId}`,
+        `Provider model not found: ${cell.providerId} / ${cell.modelId}`,
       );
     }
     const runId = createRun(app.db, {
@@ -66,7 +72,7 @@ export function launchMatrixRun(
       runId,
       harness: cell.harness,
       provider,
-      modelId: cell.modelId,
+      model,
     });
   }
 
@@ -150,9 +156,8 @@ export function launchMatrixRun(
       baseCommit: task.baseCommit,
       runsRoot: app.runsRoot,
       provider: spec.provider,
-      model:
-        spec.provider.models.find((m) => m.id === spec.modelId) ??
-        { id: spec.modelId },
+      model: spec.model,
+      harness: spec.harness,
       skillBundles,
       skillMode,
       adapter: wrappedAdapter,

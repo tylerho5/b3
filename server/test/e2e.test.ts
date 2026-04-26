@@ -2,7 +2,6 @@ import { test, expect } from "bun:test";
 import {
   mkdtempSync,
   rmSync,
-  writeFileSync,
   readFileSync,
   existsSync,
 } from "node:fs";
@@ -12,6 +11,8 @@ import type { AppState } from "../src/state/app";
 import { createAppState } from "../src/state/app";
 import { handleRequest } from "../src/api/routes";
 import type { RunEvent } from "../src/state/hub";
+import { createProvider } from "../src/db/providers";
+import { addProviderModels } from "../src/db/providerModels";
 
 function probeClaude(): boolean {
   try {
@@ -23,42 +24,42 @@ function probeClaude(): boolean {
 }
 const HAVE_CLAUDE = probeClaude() && !process.env.B3_SKIP_CLI_TESTS;
 
-// No env interpolation in fixture — the test relies on the user's existing
-// claude CLI auth (OAuth keychain). The empty env block is intentional.
-const FIXTURE_TOML = `
-version = 1
-
-[judge]
-template = "Task: {task_name}\\nPrompt:\\n{task_prompt}\\nTests: {test_status}\\nArtifacts: {run_path}/"
-
-[[providers.claude_code]]
-id = "anthropic-direct"
-label = "Anthropic"
-pricing_mode = "per_token"
-models = [
-  { id = "claude-haiku-4-5", tier = "haiku", input_cost_per_mtok = 0.80, output_cost_per_mtok = 4.0 },
-]
-`;
-
-function makeApp(): { app: AppState; cleanup: () => void } {
+function makeApp(): {
+  app: AppState;
+  cleanup: () => void;
+  providerId: string;
+  modelId: string;
+} {
   const root = mkdtempSync(join(tmpdir(), "b3-e2e-"));
-  const cfgDir = join(root, "cfg");
   const dbDir = join(root, "db");
   const runsRoot = join(root, "runs");
-  const cfgPath = join(cfgDir, "config.toml");
-  Bun.spawnSync(["mkdir", "-p", cfgDir, dbDir, runsRoot]);
-  writeFileSync(cfgPath, FIXTURE_TOML);
+  Bun.spawnSync(["mkdir", "-p", dbDir, runsRoot]);
   const app = createAppState({
     dbPath: join(dbDir, "e2e.db"),
-    configPath: cfgPath,
     runsRoot,
+    importLegacyToml: false,
   });
+  const provider = createProvider(app.db, {
+    name: "Claude (subscription)",
+    kind: "claude_subscription",
+  });
+  const [model] = addProviderModels(app.db, provider.id, [
+    {
+      modelId: "claude-haiku-4-5",
+      displayName: "Claude Haiku 4.5",
+      tier: "haiku",
+      inputCostPerMtok: 0.8,
+      outputCostPerMtok: 4.0,
+    },
+  ]);
   return {
     app,
     cleanup: () => {
       app.db.close();
       rmSync(root, { recursive: true, force: true });
     },
+    providerId: provider.id,
+    modelId: model.modelId,
   };
 }
 
@@ -81,7 +82,7 @@ async function jreq(
 test.skipIf(!HAVE_CLAUDE)(
   "e2e: launch 1-cell matrix via HTTP, WS receives events, run passes, artifacts written",
   async () => {
-    const { app, cleanup } = makeApp();
+    const { app, cleanup, providerId, modelId } = makeApp();
     try {
       // Create task
       const taskRes = await jreq(app, "POST", "/api/tasks", {
@@ -109,8 +110,8 @@ test.skipIf(!HAVE_CLAUDE)(
         matrix: [
           {
             harness: "claude_code",
-            providerId: "anthropic-direct",
-            modelId: "claude-haiku-4-5",
+            providerId,
+            modelId,
           },
         ],
         skillIds: [],

@@ -1,5 +1,6 @@
 import type { Subprocess } from "bun";
-import type { ModelCard, ProviderConfig } from "../config/types";
+import type { Provider } from "../db/providers";
+import type { ProviderModel } from "../db/providerModels";
 import type { SkillBundle } from "../skills/registry";
 
 export type SegKind = "initial" | "followup" | "broadcast";
@@ -68,9 +69,8 @@ export interface AdapterSpawnInput {
   runId: string;
   workdir: string;
   initialPrompt: string;
-  env: Record<string, string>;
-  provider: ProviderConfig;
-  model: ModelCard;
+  provider: Provider;
+  model: ProviderModel;
   skills: SkillBundle[];
   onEvent: (ev: NormalizedEvent) => void;
 }
@@ -95,5 +95,5 @@ export interface HarnessAdapter {
 
   close(handle: SessionHandle): Promise<void>;
 
-  estimateCost(usage: UsageBreakdown, model: ModelCard): number | null;
+  estimateCost(usage: UsageBreakdown, model: ProviderModel): number | null;
 }

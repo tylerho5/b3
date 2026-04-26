@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createAppState, type AppState } from "../src/state/app";
@@ -10,25 +10,14 @@ export interface TestApp {
   cleanup: () => void;
 }
 
-const MIN_TOML = `
-version = 1
-
-[judge]
-template = "n/a"
-`;
-
-export function createTestApp(opts?: { tomlText?: string }): TestApp {
+export function createTestApp(): TestApp {
   const root = mkdtempSync(join(tmpdir(), "b3-test-"));
-  const cfgDir = join(root, "cfg");
-  const dbDir = join(root, "db");
   const runsRoot = join(root, "runs");
-  Bun.spawnSync(["mkdir", "-p", cfgDir, dbDir, runsRoot]);
-  const cfgPath = join(cfgDir, "config.toml");
-  writeFileSync(cfgPath, opts?.tomlText ?? MIN_TOML);
+  Bun.spawnSync(["mkdir", "-p", runsRoot]);
   const app = createAppState({
     dbPath: ":memory:",
-    configPath: cfgPath,
     runsRoot,
+    importLegacyToml: false,
   });
   const fetchLocal = async (
     path: string,

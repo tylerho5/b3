@@ -22,7 +22,8 @@ import type {
   NormalizedEvent,
   SessionHandle,
 } from "../adapters/types";
-import type { ModelCard, ProviderConfig } from "../config/types";
+import type { Provider } from "../db/providers";
+import type { ProviderModel } from "../db/providerModels";
 import { runTestPhase as defaultRunTestPhase } from "./testRunner";
 
 export interface RunOneInput {
@@ -33,8 +34,9 @@ export interface RunOneInput {
   baseRepo: string | null;
   baseCommit: string | null;
   runsRoot: string;
-  provider: ProviderConfig;
-  model: ModelCard;
+  provider: Provider;
+  model: ProviderModel;
+  harness: "claude_code" | "codex";
   skillBundles: SkillBundle[];
   skillMode: MaterializeMode;
   adapter: HarnessAdapter;
@@ -57,6 +59,7 @@ export async function runOne(input: RunOneInput): Promise<void> {
     runsRoot,
     provider,
     model,
+    harness,
     skillBundles,
     skillMode,
     adapter,
@@ -144,7 +147,6 @@ export async function runOne(input: RunOneInput): Promise<void> {
       runId,
       workdir: wt.workdir,
       initialPrompt: prompt,
-      env: provider.env,
       provider,
       model,
       skills: skillBundles,
@@ -187,9 +189,9 @@ export async function runOne(input: RunOneInput): Promise<void> {
       const run = getRun(db, runId)!;
       const meta = {
         runId,
-        harness: provider.harness,
+        harness,
         providerId: provider.id,
-        modelId: model.id,
+        modelId: model.modelId,
         baseCommit: wt.baseCommit,
         sessionId: run.sessionId,
         startedAt: run.startedAt,

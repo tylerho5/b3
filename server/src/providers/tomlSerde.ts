@@ -1,6 +1,6 @@
 import TOML from "@iarna/toml";
 import type { DB } from "../db";
-import type { Harness } from "../config/types";
+import type { Harness } from "../db/providers";
 import {
   createProvider,
   deleteProvider,

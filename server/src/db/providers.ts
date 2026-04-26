@@ -1,6 +1,8 @@
 import { ulid } from "ulid";
 import type { DB } from "./index";
 
+export type Harness = "claude_code" | "codex";
+
 export type ProviderKind =
   | "anthropic_api_direct"
   | "openai_api_direct"

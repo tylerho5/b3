@@ -1,8 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { ModelCard, ProviderConfig } from "../config/types";
-import type { ProviderKind, Provider } from "../db/providers";
 import type { ProviderModel } from "../db/providerModels";
-import { buildSpawnEnv, type SpawnEnv } from "../providers/recipes";
+import { buildSpawnEnv } from "../providers/recipes";
 import type {
   AdapterSpawnInput,
   HarnessAdapter,
@@ -10,67 +8,6 @@ import type {
   SessionHandle,
   UsageBreakdown,
 } from "./types";
-
-// Phase 1 bridge: legacy ProviderConfig has no `kind` field, so we infer one
-// from the env-var shape it produces. Phase 4 deletes this bridge once all
-// callsites pass DB-shaped Provider rows directly.
-export function inferClaudeCodeKind(
-  env: Record<string, string>,
-): ProviderKind {
-  const baseUrl = env.ANTHROPIC_BASE_URL;
-  const hasAuth = !!env.ANTHROPIC_AUTH_TOKEN || !!env.ANTHROPIC_API_KEY;
-  if (!baseUrl && !hasAuth) return "claude_subscription";
-  if (baseUrl && baseUrl.includes("openrouter.ai")) return "openrouter";
-  if (baseUrl) return "custom_anthropic_compat";
-  return "anthropic_api_direct";
-}
-
-export function legacyToClaudeCodeSpawnEnv(
-  provider: ProviderConfig,
-  model: ModelCard,
-): SpawnEnv {
-  const kind = inferClaudeCodeKind(provider.env);
-  const apiKey =
-    provider.env.ANTHROPIC_AUTH_TOKEN ?? provider.env.ANTHROPIC_API_KEY ?? null;
-  const synthProvider: Provider = {
-    id: provider.id,
-    name: provider.label,
-    kind,
-    baseUrl: provider.env.ANTHROPIC_BASE_URL ?? null,
-    apiKey,
-    apiKeyEnvRef: null,
-    createdAt: "",
-    updatedAt: "",
-  };
-  const synthModel: ProviderModel = {
-    id: provider.id + ":" + model.id,
-    providerId: provider.id,
-    modelId: model.id,
-    displayName: model.id,
-    contextLength: null,
-    inputCostPerMtok: model.inputCostPerMtok ?? null,
-    outputCostPerMtok: model.outputCostPerMtok ?? null,
-    tier: model.tier ?? null,
-    supportedParameters: null,
-    addedAt: "",
-  };
-  const recipeEnv = buildSpawnEnv(synthProvider, synthModel, "claude_code");
-  // Subscription kinds emit no env from the recipe, but the orchestrator still
-  // needs the tier-aware model env so subagent spawns route to the model under
-  // test (CLAUDE.md: "set all three ANTHROPIC_DEFAULT_<TIER>_MODEL when tier
-  // is unset").
-  if (Object.keys(recipeEnv).length === 0) {
-    if (model.tier) {
-      const k = `ANTHROPIC_DEFAULT_${model.tier.toUpperCase()}_MODEL`;
-      recipeEnv[k] = model.id;
-    } else {
-      recipeEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL = model.id;
-      recipeEnv.ANTHROPIC_DEFAULT_SONNET_MODEL = model.id;
-      recipeEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = model.id;
-    }
-  }
-  return recipeEnv;
-}
 
 interface CCRawBlock {
   type: string;
@@ -101,10 +38,9 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
   readonly name = "claude_code" as const;
 
   async spawn(input: AdapterSpawnInput): Promise<SessionHandle> {
-    const recipeEnv = legacyToClaudeCodeSpawnEnv(input.provider, input.model);
+    const recipeEnv = buildSpawnEnv(input.provider, input.model, "claude_code");
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      ...input.env,
       ...recipeEnv,
     };
 
@@ -117,7 +53,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       "--verbose",
       "--dangerously-skip-permissions",
       "--model",
-      input.model.id,
+      input.model.modelId,
     ];
 
     const proc = spawn("claude", args, {
@@ -324,7 +260,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     }
   }
 
-  estimateCost(usage: UsageBreakdown, model: ModelCard): number | null {
+  estimateCost(usage: UsageBreakdown, model: ProviderModel): number | null {
     if (model.inputCostPerMtok == null || model.outputCostPerMtok == null) {
       return null;
     }

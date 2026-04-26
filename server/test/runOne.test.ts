@@ -13,7 +13,11 @@ import {
 import { listEvents } from "../src/db/events";
 import { runOne } from "../src/orchestrator/runOne";
 import { ClaudeCodeAdapter } from "../src/adapters/claudeCode";
-import type { ProviderConfig } from "../src/config/types";
+import { createProvider, type Provider } from "../src/db/providers";
+import {
+  addProviderModels,
+  type ProviderModel,
+} from "../src/db/providerModels";
 
 function probeClaude(): boolean {
   try {
@@ -29,6 +33,27 @@ function setupDb(): { db: DB; cleanup: () => void } {
   const db = openDb(":memory:");
   runMigrations(db);
   return { db, cleanup: () => db.close() };
+}
+
+function seedClaudeSubscription(
+  db: DB,
+  modelId: string,
+  costs?: { inputCostPerMtok?: number; outputCostPerMtok?: number },
+): { provider: Provider; model: ProviderModel } {
+  const provider = createProvider(db, {
+    name: "Claude (subscription)",
+    kind: "claude_subscription",
+  });
+  const [model] = addProviderModels(db, provider.id, [
+    {
+      modelId,
+      displayName: modelId,
+      tier: "haiku",
+      inputCostPerMtok: costs?.inputCostPerMtok ?? null,
+      outputCostPerMtok: costs?.outputCostPerMtok ?? null,
+    },
+  ]);
+  return { provider, model };
 }
 
 test.skipIf(!HAVE_CLAUDE)(
@@ -51,21 +76,17 @@ test.skipIf(!HAVE_CLAUDE)(
         skillIds: [],
         concurrency: 1,
       });
+      const { provider, model } = seedClaudeSubscription(
+        db,
+        "claude-haiku-4-5",
+      );
       const runId = createRun(db, {
         matrixRunId: matrixId,
         harness: "claude_code",
-        providerId: "anthropic-direct",
-        modelId: "claude-haiku-4-5",
+        providerId: provider.id,
+        modelId: model.modelId,
         worktreePath: "",
       });
-      const provider: ProviderConfig = {
-        harness: "claude_code",
-        id: "anthropic-direct",
-        label: "Anthropic",
-        pricingMode: "per_token",
-        env: {},
-        models: [],
-      };
       const adapter = new ClaudeCodeAdapter();
       const wsBroadcasts: unknown[] = [];
 
@@ -78,7 +99,8 @@ test.skipIf(!HAVE_CLAUDE)(
         baseCommit: null,
         runsRoot,
         provider,
-        model: { id: "claude-haiku-4-5", tier: "haiku" },
+        model,
+        harness: "claude_code",
         skillBundles: [],
         skillMode: "copy",
         adapter,
@@ -132,21 +154,18 @@ test.skipIf(!HAVE_CLAUDE)(
         skillIds: [],
         concurrency: 1,
       });
+      const { provider, model } = seedClaudeSubscription(
+        db,
+        "claude-haiku-4-5",
+        { inputCostPerMtok: 0.8, outputCostPerMtok: 4.0 },
+      );
       const runId = createRun(db, {
         matrixRunId: matrixId,
         harness: "claude_code",
-        providerId: "anthropic-direct",
-        modelId: "claude-haiku-4-5",
+        providerId: provider.id,
+        modelId: model.modelId,
         worktreePath: "",
       });
-      const provider: ProviderConfig = {
-        harness: "claude_code",
-        id: "anthropic-direct",
-        label: "Anthropic",
-        pricingMode: "per_token",
-        env: {},
-        models: [],
-      };
       await runOne({
         db,
         runId,
@@ -156,12 +175,8 @@ test.skipIf(!HAVE_CLAUDE)(
         baseCommit: null,
         runsRoot,
         provider,
-        model: {
-          id: "claude-haiku-4-5",
-          tier: "haiku",
-          inputCostPerMtok: 0.8,
-          outputCostPerMtok: 4.0,
-        },
+        model,
+        harness: "claude_code",
         skillBundles: [],
         skillMode: "copy",
         adapter: new ClaudeCodeAdapter(),
