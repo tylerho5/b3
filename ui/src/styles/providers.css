@@ -135,11 +135,11 @@
 }
 .status-pill.warning {
   background: rgba(255, 193, 7, 0.12);
-  color: #b48400;
+  color: var(--warning);
   border: 1px solid rgba(255, 193, 7, 0.35);
 }
 .status-pill.warning .dot {
-  background: #b48400;
+  background: var(--warning);
 }
 .status-pill.error {
   background: rgba(220, 53, 69, 0.10);
@@ -460,7 +460,7 @@
   color: var(--text-muted);
 }
 .catalog-warn {
-  color: #b48400;
+  color: var(--warning);
   cursor: help;
 }
 
