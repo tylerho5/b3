@@ -50,6 +50,8 @@ import {
   snapshotForExport,
 } from "../providers/tomlSerde";
 import { getSetting, putSetting } from "../db/appSettings";
+import { addRecent, listRecent } from "../db/recents";
+import { deletePin, listPins, setPin } from "../db/routePins";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -497,6 +499,36 @@ export async function handleRequest(
         ? readFileSync(testLogPath, "utf-8")
         : null,
     });
+  }
+
+  if (path === "/api/recents" && method === "GET") {
+    return json({ models: listRecent(app.db) });
+  }
+
+  if (path === "/api/recents" && method === "POST") {
+    const body = await readBody<{ modelName?: string }>(req);
+    if (!body?.modelName) return badRequest("modelName required");
+    addRecent(app.db, body.modelName);
+    return json({ ok: true });
+  }
+
+  if (path === "/api/route-pins" && method === "GET") {
+    return json({ pins: listPins(app.db) });
+  }
+
+  const routePin = path.match(/^\/api\/route-pins\/(.+)$/);
+  if (routePin && method === "PUT") {
+    const modelName = decodeURIComponent(routePin[1]);
+    const body = await readBody<{ routeId?: string }>(req);
+    if (!body?.routeId) return badRequest("routeId required");
+    setPin(app.db, modelName, body.routeId);
+    return json({ ok: true });
+  }
+
+  if (routePin && method === "DELETE") {
+    const modelName = decodeURIComponent(routePin[1]);
+    deletePin(app.db, modelName);
+    return json({ ok: true });
   }
 
   return notFound();
