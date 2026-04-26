@@ -255,3 +255,11 @@ export interface WSEnvelope {
   runId: string;
   event: NormalizedEvent;
 }
+
+export interface RecentModelsResponse {
+  models: string[];
+}
+
+export interface RoutePinsResponse {
+  pins: Record<string, string>;
+}

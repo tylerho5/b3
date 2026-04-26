@@ -16,6 +16,8 @@ import type {
   MatrixEstimate,
   Run,
   RunSegment,
+  RecentModelsResponse,
+  RoutePinsResponse,
 } from "../types/shared";
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -276,6 +278,40 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ score, notes }),
     });
+    if (!res.ok) throw new Error(res.statusText);
+  },
+
+  async listRecents(): Promise<RecentModelsResponse> {
+    return jsonOrThrow(await fetch("/api/recents"));
+  },
+  async recordRecent(modelName: string): Promise<void> {
+    const res = await fetch("/api/recents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ modelName }),
+    });
+    if (!res.ok) throw new Error(res.statusText);
+  },
+
+  async listRoutePins(): Promise<RoutePinsResponse> {
+    return jsonOrThrow(await fetch("/api/route-pins"));
+  },
+  async setRoutePin(modelName: string, routeId: string): Promise<void> {
+    const res = await fetch(
+      `/api/route-pins/${encodeURIComponent(modelName)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ routeId }),
+      },
+    );
+    if (!res.ok) throw new Error(res.statusText);
+  },
+  async deleteRoutePin(modelName: string): Promise<void> {
+    const res = await fetch(
+      `/api/route-pins/${encodeURIComponent(modelName)}`,
+      { method: "DELETE" },
+    );
     if (!res.ok) throw new Error(res.statusText);
   },
 };

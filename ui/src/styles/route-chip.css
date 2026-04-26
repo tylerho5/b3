@@ -1,0 +1,112 @@
+.route-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.route-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.route-chip-pin {
+  color: var(--accent);
+  margin-left: 1px;
+}
+
+/* Popover anchor wrapper */
+.route-chip-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+/* Popover panel */
+.route-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  min-width: 220px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-dropdown);
+  padding: 8px 0 4px;
+}
+
+.route-popover-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  padding: 0 10px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.route-popover-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.route-popover-option:hover {
+  background: var(--bg-secondary);
+}
+
+.route-popover-option input[type="radio"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.route-popover-option-label {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.route-popover-option-name {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.route-popover-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.route-popover-pin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.route-popover-pin-row input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.route-popover-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 10px 4px;
+}
