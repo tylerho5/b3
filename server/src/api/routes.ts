@@ -372,7 +372,7 @@ export async function handleRequest(
         taskId: body.taskId,
         matrix: body.matrix,
         skillIds: body.skillIds ?? [],
-        concurrency: body.concurrency ?? 4,
+        concurrency: body.concurrency ?? Math.min(body.matrix.length, 16),
       });
       return json(result);
     } catch (e) {
