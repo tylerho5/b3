@@ -36,6 +36,7 @@ export function MatrixLauncher({
   const [providerSel, setProviderSel] = useState<Set<string>>(new Set());
   const [modelSel, setModelSel] = useState<Set<string>>(new Set());
   const [skillSel, setSkillSel] = useState<Set<string>>(new Set());
+  const [removedCells, setRemovedCells] = useState<Set<string>>(new Set());
   const [concurrency, setConcurrency] = useState(4);
   const [estimate, setEstimate] = useState<MatrixEstimate | null>(null);
   const [launching, setLaunching] = useState(false);
@@ -68,7 +69,12 @@ export function MatrixLauncher({
     return visible;
   }, [providerModels, providerSel]);
 
-  const cells = useMemo(
+  // Reset removed cells when upstream selections change so users can re-add by toggling.
+  useEffect(() => {
+    setRemovedCells(new Set());
+  }, [harnessSel, providerSel, modelSel]);
+
+  const allCells = useMemo(
     () =>
       resolveCells({
         harnessSel,
@@ -78,6 +84,16 @@ export function MatrixLauncher({
         modelSel,
       }),
     [harnessSel, providers, providerModels, providerSel, modelSel],
+  );
+
+  const cells = useMemo(
+    () => allCells.filter((c) => !removedCells.has(c.id)),
+    [allCells, removedCells],
+  );
+
+  const warningCount = useMemo(
+    () => cells.filter((c) => c.warning).length,
+    [cells],
   );
 
   // Debounced estimate fetch.
@@ -237,13 +253,29 @@ export function MatrixLauncher({
 
       <aside className="launcher-side">
         <div className="launcher-side-head">matrix</div>
-        <MatrixGrid cells={cells} />
+        <MatrixGrid
+          cells={cells}
+          onRemove={(id) =>
+            setRemovedCells((s) => {
+              const next = new Set(s);
+              next.add(id);
+              return next;
+            })
+          }
+        />
         <MatrixLegend
           cells={cells}
           providers={providers}
           estimate={estimate}
           concurrency={concurrency}
         />
+        {warningCount > 0 && (
+          <div className="launcher-warning">
+            {warningCount === 1
+              ? "1 cell may have feature gaps under its harness — hover the ⚠ for details."
+              : `${warningCount} cells may have feature gaps under their harness — hover the ⚠ for details.`}
+          </div>
+        )}
         <button
           type="button"
           className="primary launcher-run"
