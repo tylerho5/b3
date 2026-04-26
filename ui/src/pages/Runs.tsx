@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { MatrixRun, ProviderConfig, Run } from "../types/shared";
+import type {
+  Harness,
+  MatrixRun,
+  ProviderConfig,
+  Run,
+  RunStatus,
+} from "../types/shared";
 import { MatrixLauncher } from "../components/MatrixLauncher";
 import { SessionCard } from "../components/SessionCard";
 import { BroadcastBar } from "../components/BroadcastBar";
+import { MatrixGrid, type CellRunState } from "../components/MatrixGrid";
+import { cellId, type MatrixCell } from "../launcher/resolveCells";
 import { useEvents } from "../hooks/useEvents";
 import "../styles/runs.css";
 
@@ -142,6 +150,24 @@ function ActiveMatrix({
   const pricingByProvider = (id: string) =>
     providers.find((p) => p.id === id)?.pricingMode ?? "unknown";
 
+  const gridCells = useMemo<MatrixCell[]>(
+    () =>
+      cells.map((c) => ({
+        id: cellId(c.harness, c.providerId, c.modelId),
+        harness: c.harness as Harness,
+        providerId: c.providerId,
+        modelId: c.modelId,
+      })),
+    [cells],
+  );
+  const gridState = useMemo<Record<string, CellRunState>>(() => {
+    const out: Record<string, CellRunState> = {};
+    for (const c of cells) {
+      out[cellId(c.harness, c.providerId, c.modelId)] = mapRunStatus(c.status);
+    }
+    return out;
+  }, [cells]);
+
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -165,6 +191,9 @@ function ActiveMatrix({
           </button>
         </div>
       </div>
+      {gridCells.length > 0 && (
+        <MatrixGrid cells={gridCells} state={gridState} />
+      )}
       <BroadcastBar
         matrixRunId={matrixRunId}
         selectedCount={selected.size}
@@ -189,4 +218,21 @@ function ActiveMatrix({
       </div>
     </section>
   );
+}
+
+function mapRunStatus(status: RunStatus): CellRunState {
+  switch (status) {
+    case "running":
+    case "testing":
+      return "running";
+    case "passed":
+      return "success";
+    case "failed":
+    case "error":
+    case "canceled":
+      return "error";
+    case "pending":
+    default:
+      return "pending";
+  }
 }
