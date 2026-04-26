@@ -1,111 +1,361 @@
 import "../styles/matrix-grid.css";
-import type { MatrixCell } from "../launcher/resolveCells";
+import "../styles/route-chip.css";
+import type { Harness, Provider, ProviderModel, Run } from "../types/shared";
+import type { CellState } from "../hooks/useMatrixSelection";
+import { cellKey } from "../hooks/useMatrixSelection";
+import { resolveRoute } from "../lib/resolveRoute";
+import { routeLabel } from "../lib/routeLabel";
+import { RouteChip } from "./RouteChip";
+import type { RouteOption } from "./RouteChip";
 
 export type CellRunState = "pending" | "running" | "success" | "error";
 
-interface MatrixGridProps {
-  cells: MatrixCell[];
-  state?: Record<string, CellRunState>;
-  onRemove?: (cellId: string) => void;
-  showLegend?: boolean;
+const ALL_HARNESSES: Harness[] = ["claude_code", "codex"];
+
+const KIND_HARNESSES: Record<string, ReadonlyArray<Harness>> = {
+  anthropic_api_direct: ["claude_code"],
+  openai_api_direct: ["codex"],
+  openrouter: ["claude_code", "codex"],
+  claude_subscription: ["claude_code"],
+  codex_subscription: ["codex"],
+  custom_anthropic_compat: ["claude_code"],
+  custom_openai_compat: ["codex"],
+};
+
+type CellAvailability = "native" | "openrouter_only" | "unsupported";
+
+function cellAvailability(
+  modelName: string,
+  harness: Harness,
+  providers: Provider[],
+  providerModels: ProviderModel[],
+): CellAvailability {
+  const modelProviderIds = new Set(
+    providerModels.filter((m) => m.modelId === modelName).map((m) => m.providerId),
+  );
+  const hasNative = providers.some(
+    (p) =>
+      p.kind !== "openrouter" &&
+      modelProviderIds.has(p.id) &&
+      KIND_HARNESSES[p.kind]?.includes(harness),
+  );
+  if (hasNative) return "native";
+  const hasOr = providers.some(
+    (p) => p.kind === "openrouter" && modelProviderIds.has(p.id),
+  );
+  return hasOr ? "openrouter_only" : "unsupported";
 }
 
-export function MatrixGrid({
+function routeOptionsForCell(
+  modelName: string,
+  harness: Harness,
+  providers: Provider[],
+  providerModels: ProviderModel[],
+): RouteOption[] {
+  const modelProviderIds = new Set(
+    providerModels.filter((m) => m.modelId === modelName).map((m) => m.providerId),
+  );
+  return providers
+    .filter(
+      (p) =>
+        modelProviderIds.has(p.id) && KIND_HARNESSES[p.kind]?.includes(harness),
+    )
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((p) => ({ id: p.id, label: routeLabel(p), name: p.name }));
+}
+
+// ── Configure mode ──────────────────────────────────────────
+
+interface ConfigureProps {
+  mode: "configure";
+  models: string[];
+  cells: Record<string, CellState>;
+  providers: Provider[];
+  providerModels: ProviderModel[];
+  pins: Record<string, string>;
+  onToggleCell: (model: string, harness: Harness) => void;
+  onSwapRoute: (model: string, harness: Harness, routeId: string) => void;
+  onPinRoute: (model: string, routeId: string) => void;
+  onRemoveModel: (model: string) => void;
+  onRemoveAll: () => void;
+}
+
+// ── Live mode ───────────────────────────────────────────────
+
+interface LiveProps {
+  mode: "live";
+  runs: Run[];
+  state: Record<string, CellRunState>;
+  onCellClick?: (runId: string) => void;
+}
+
+export type MatrixGridProps = ConfigureProps | LiveProps;
+
+export function MatrixGrid(props: MatrixGridProps) {
+  if (props.mode === "configure") return <ConfigureGrid {...props} />;
+  return <LiveGrid {...props} />;
+}
+
+// ── Configure grid ──────────────────────────────────────────
+
+function ConfigureGrid({
+  models,
   cells,
-  state,
-  onRemove,
-  showLegend = true,
-}: MatrixGridProps) {
-  if (cells.length === 0) {
+  providers,
+  providerModels,
+  pins,
+  onToggleCell,
+  onSwapRoute,
+  onPinRoute,
+  onRemoveModel,
+  onRemoveAll,
+}: Omit<ConfigureProps, "mode">) {
+  const checkedCount = Object.values(cells).filter((c) => c.checked).length;
+
+  if (models.length === 0) {
     return (
-      <div className="matrix-grid matrix-grid-empty">
-        no cells — pick providers and models
+      <div className="mg-empty">
+        no models — click <strong>+ add models</strong> to begin
       </div>
     );
   }
 
-  const ccCount = cells.filter((c) => c.harness === "claude_code").length;
-  const codexCount = cells.filter((c) => c.harness === "codex").length;
-
   return (
-    <div className="matrix-grid-wrap">
-      <div className="matrix-grid" role="list">
-        {cells.map((cell) => (
-          <CellSquare
-            key={cell.id}
-            cell={cell}
-            runState={state?.[cell.id]}
-            onRemove={onRemove}
-          />
-        ))}
+    <div className="mg-wrap">
+      <table className="mg-table">
+        <thead>
+          <tr>
+            <th className="mg-model-col">model</th>
+            {ALL_HARNESSES.map((h) => (
+              <th key={h} className="mg-harness-col">
+                {h === "claude_code" ? "claude code" : h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((modelName) => (
+            <ConfigureRow
+              key={modelName}
+              modelName={modelName}
+              cells={cells}
+              providers={providers}
+              providerModels={providerModels}
+              pins={pins}
+              onToggleCell={onToggleCell}
+              onSwapRoute={onSwapRoute}
+              onPinRoute={onPinRoute}
+              onRemoveModel={onRemoveModel}
+            />
+          ))}
+        </tbody>
+      </table>
+      <div className="mg-footer">
+        <span>{checkedCount} cell{checkedCount === 1 ? "" : "s"} ready</span>
+        <button type="button" className="danger" onClick={onRemoveAll}>
+          ✕ remove all
+        </button>
       </div>
-      {showLegend && (ccCount > 0 || codexCount > 0) && (
-        <div className="matrix-grid-legend">
-          {ccCount > 0 && (
-            <span className="matrix-grid-legend-item">
-              <span className="matrix-grid-swatch matrix-grid-swatch-cc" />
-              {ccCount} cc
-            </span>
-          )}
-          {codexCount > 0 && (
-            <span className="matrix-grid-legend-item">
-              <span className="matrix-grid-swatch matrix-grid-swatch-codex" />
-              {codexCount} codex
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-function CellSquare({
-  cell,
-  runState,
-  onRemove,
+function ConfigureRow({
+  modelName,
+  cells,
+  providers,
+  providerModels,
+  pins,
+  onToggleCell,
+  onSwapRoute,
+  onPinRoute,
+  onRemoveModel,
 }: {
-  cell: MatrixCell;
-  runState?: CellRunState;
-  onRemove?: (id: string) => void;
+  modelName: string;
+  cells: Record<string, CellState>;
+  providers: Provider[];
+  providerModels: ProviderModel[];
+  pins: Record<string, string>;
+  onToggleCell: (model: string, harness: Harness) => void;
+  onSwapRoute: (model: string, harness: Harness, routeId: string) => void;
+  onPinRoute: (model: string, routeId: string) => void;
+  onRemoveModel: (model: string) => void;
 }) {
-  const className = [
-    "matrix-cell",
-    `matrix-cell-${cell.harness === "claude_code" ? "cc" : "codex"}`,
-    runState ? `matrix-cell-${runState}` : "",
-    cell.warning ? "matrix-cell-warning" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return (
+    <tr className="mg-row">
+      <td className="mg-model-cell">
+        <div className="mg-model-cell-inner">
+          <span title={modelName}>
+            {modelName.length > 22 ? modelName.slice(0, 22) + "…" : modelName}
+          </span>
+          <button
+            type="button"
+            className="mg-row-remove"
+            title={`remove ${modelName}`}
+            onClick={() => onRemoveModel(modelName)}
+          >
+            ✕
+          </button>
+        </div>
+      </td>
+      {ALL_HARNESSES.map((harness) => {
+        const avail = cellAvailability(modelName, harness, providers, providerModels);
+        const key = cellKey(modelName, harness);
+        const cellState = cells[key];
+        const checked = cellState?.checked ?? false;
 
-  const tooltipParts = [
-    cell.harness,
-    cell.providerId,
-    cell.modelId,
-  ];
-  if (cell.warning) tooltipParts.push(`⚠ ${cell.warning}`);
-  if (runState) tooltipParts.push(`(${runState})`);
-  const title = tooltipParts.join(" · ");
+        if (avail === "unsupported") {
+          return (
+            <td key={harness} className="mg-cell mg-cell-na">
+              n/a
+            </td>
+          );
+        }
+
+        if (avail === "openrouter_only" && !checked) {
+          return (
+            <td
+              key={harness}
+              className="mg-cell mg-cell-crossprotocol"
+              onClick={() => onToggleCell(modelName, harness)}
+              title="Available via OpenRouter cross-protocol — click to include"
+            >
+              <span className="mg-xp-na">n/a</span>
+              <span className="mg-xp-hint">+ via openrouter</span>
+            </td>
+          );
+        }
+
+        // Native or opted-in cross-protocol
+        const resolvedId =
+          cellState?.routeOverride ??
+          resolveRoute({ modelName, harness, providers, providerModels, pins });
+        const resolvedProvider = providers.find((p) => p.id === resolvedId);
+        const options = routeOptionsForCell(modelName, harness, providers, providerModels);
+
+        return (
+          <td
+            key={harness}
+            className={`mg-cell mg-cell-available${!checked ? " mg-cell-excluded" : ""}`}
+          >
+            <label>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggleCell(modelName, harness)}
+              />
+              {resolvedProvider && (
+                <RouteChip
+                  modelName={modelName}
+                  routeId={resolvedId!}
+                  routeLabel={routeLabel(resolvedProvider)}
+                  pinnedRouteId={pins[modelName]}
+                  options={options}
+                  onSwap={(routeId) => onSwapRoute(modelName, harness, routeId)}
+                  onPin={(routeId) => onPinRoute(modelName, routeId)}
+                />
+              )}
+            </label>
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
+
+// ── Live grid ───────────────────────────────────────────────
+
+function mapRunStatus(status: Run["status"]): CellRunState {
+  switch (status) {
+    case "running":
+    case "testing":
+      return "running";
+    case "passed":
+      return "success";
+    case "failed":
+    case "error":
+    case "canceled":
+      return "error";
+    default:
+      return "pending";
+  }
+}
+
+function LiveGrid({
+  runs,
+  state,
+  onCellClick,
+}: Omit<LiveProps, "mode">) {
+  if (runs.length === 0) {
+    return <div className="mg-empty">no active runs</div>;
+  }
+
+  // Derive rows (unique models) and columns (unique harnesses) from runs
+  const models = Array.from(new Set(runs.map((r) => r.modelId)));
+  const harnesses = Array.from(new Set(runs.map((r) => r.harness))) as Harness[];
+
+  // Key: modelId::harness → Run
+  const runByCell = new Map<string, Run>();
+  for (const r of runs) {
+    runByCell.set(cellKey(r.modelId, r.harness), r);
+  }
 
   return (
-    <div className={className} role="listitem" title={title}>
-      {cell.warning && (
-        <span className="matrix-cell-warn-badge" aria-label="warning">
-          ⚠
-        </span>
-      )}
-      {onRemove && (
-        <button
-          type="button"
-          className="matrix-cell-remove"
-          aria-label={`remove ${cell.modelId}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(cell.id);
-          }}
-        >
-          ×
-        </button>
-      )}
+    <div className="mg-wrap">
+      <table className="mg-table">
+        <thead>
+          <tr>
+            <th className="mg-model-col">model</th>
+            {harnesses.map((h) => (
+              <th key={h} className="mg-harness-col">
+                {h === "claude_code" ? "claude code" : h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((modelId) => (
+            <tr key={modelId} className="mg-row">
+              <td className="mg-model-cell">
+                <span title={modelId}>
+                  {modelId.length > 22 ? modelId.slice(0, 22) + "…" : modelId}
+                </span>
+              </td>
+              {harnesses.map((harness) => {
+                const run = runByCell.get(cellKey(modelId, harness));
+                if (!run) {
+                  return (
+                    <td key={harness} className="mg-cell mg-cell-na">
+                      —
+                    </td>
+                  );
+                }
+                const runState = state[run.id] ?? mapRunStatus(run.status);
+                return (
+                  <td
+                    key={harness}
+                    className="mg-live-cell"
+                    onClick={() => onCellClick?.(run.id)}
+                    title={`${modelId} · ${harness} · ${runState}`}
+                  >
+                    <LiveDot runState={runState} />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
+  );
+}
+
+function LiveDot({ runState }: { runState: CellRunState }) {
+  const cls = `mg-live-dot mg-live-dot-${runState}`;
+  const label = runState === "success" ? "✓" : runState === "error" ? "✗" : "";
+  return (
+    <span className={cls} aria-label={runState}>
+      {label}
+    </span>
   );
 }
