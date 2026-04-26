@@ -358,6 +358,82 @@ test("POST /api/providers/:id/probe (api_direct) fails when env-ref missing", as
   expect(body.message).toMatch(/B3_PROBE_TEST_KEY/);
 });
 
+test("GET /api/providers/openrouter/catalog returns catalog for valid provider", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        data: [
+          { id: "anthropic/claude-sonnet-4.6", name: "Sonnet" },
+          { id: "google/gemini-3-pro", name: "Gemini" },
+        ],
+      }),
+      { status: 200 },
+    )) as typeof fetch;
+  try {
+    const created = await postJson("/api/providers", {
+      name: "OR",
+      kind: "openrouter",
+      apiKey: "or-key",
+    });
+    const { id } = (await created.json()) as { id: string };
+    const r = await t.fetch(
+      `/api/providers/openrouter/catalog?providerId=${id}`,
+    );
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { data: Array<{ id: string }> };
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].id).toBe("anthropic/claude-sonnet-4.6");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GET /api/providers/openrouter/catalog returns 400 without providerId", async () => {
+  const r = await t.fetch("/api/providers/openrouter/catalog");
+  expect(r.status).toBe(400);
+});
+
+test("GET /api/providers/openrouter/catalog returns 404 for unknown provider", async () => {
+  const r = await t.fetch(
+    "/api/providers/openrouter/catalog?providerId=01ZZZZZZZZZZZZZZZZZZZZZZZZ",
+  );
+  expect(r.status).toBe(404);
+});
+
+test("GET /api/providers/openrouter/catalog returns 404 for non-openrouter provider", async () => {
+  const created = await postJson("/api/providers", {
+    name: "Anthropic",
+    kind: "anthropic_api_direct",
+    apiKey: "k",
+  });
+  const { id } = (await created.json()) as { id: string };
+  const r = await t.fetch(
+    `/api/providers/openrouter/catalog?providerId=${id}`,
+  );
+  expect(r.status).toBe(404);
+});
+
+test("GET /api/providers/openrouter/catalog returns 502 on upstream failure", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response("nope", { status: 401 })) as typeof fetch;
+  try {
+    const created = await postJson("/api/providers", {
+      name: "OR",
+      kind: "openrouter",
+      apiKey: "bad",
+    });
+    const { id } = (await created.json()) as { id: string };
+    const r = await t.fetch(
+      `/api/providers/openrouter/catalog?providerId=${id}`,
+    );
+    expect(r.status).toBe(502);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("POST /api/providers/:id/probe (custom_*) requires base url", async () => {
   // baseUrl is enforced at create time (400) — we can't even create the
   // provider without it. So probe never sees a malformed custom_*; this test

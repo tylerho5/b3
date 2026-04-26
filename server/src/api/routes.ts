@@ -196,6 +196,21 @@ export async function handleRequest(
     return json(created);
   }
 
+  if (path === "/api/providers/openrouter/catalog" && method === "GET") {
+    const providerId = url.searchParams.get("providerId");
+    if (!providerId) return badRequest("providerId required");
+    const provider = getProvider(app.db, providerId);
+    if (!provider || provider.kind !== "openrouter") return notFound();
+    const key = resolveProviderKey(provider);
+    if (!key.ok) return badRequest(key.message);
+    try {
+      const catalog = await fetchOpenRouterCatalog(key.value);
+      return json(catalog);
+    } catch (e) {
+      return json({ error: (e as Error).message }, { status: 502 });
+    }
+  }
+
   const providerById = path.match(/^\/api\/providers\/([^/]+)$/);
   if (providerById) {
     const id = providerById[1];
