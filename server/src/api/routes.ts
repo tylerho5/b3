@@ -41,6 +41,13 @@ import {
   detectClaudeSubscription,
   detectCodexSubscription,
 } from "../providers/detectSubscription";
+import {
+  applyImportPlan,
+  buildImportPlan,
+  parseTomlPayload,
+  serializeToToml,
+  snapshotForExport,
+} from "../providers/tomlSerde";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -194,6 +201,27 @@ export async function handleRequest(
       apiKeyEnvRef: body.apiKeyEnvRef ?? null,
     });
     return json(created);
+  }
+
+  if (path === "/api/providers/export" && method === "GET") {
+    const toml = serializeToToml(snapshotForExport(app.db));
+    return new Response(toml, {
+      status: 200,
+      headers: { "content-type": "application/toml; charset=utf-8" },
+    });
+  }
+  if (path === "/api/providers/import" && method === "POST") {
+    const body = await readBody<{ toml?: string; replace?: boolean }>(req);
+    if (typeof body?.toml !== "string") return badRequest("toml field required");
+    let parsed;
+    try {
+      parsed = parseTomlPayload(body.toml);
+    } catch (e) {
+      return badRequest(`invalid TOML: ${(e as Error).message}`);
+    }
+    const plan = buildImportPlan(parsed);
+    const result = applyImportPlan(app.db, plan, { replace: !!body.replace });
+    return json({ ok: true, ...result });
   }
 
   if (path === "/api/providers/openrouter/catalog" && method === "GET") {
