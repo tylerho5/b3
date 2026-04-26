@@ -1,0 +1,127 @@
+.matrix-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.matrix-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.matrix-grid-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 8px 0;
+}
+
+.matrix-cell {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: var(--cat-plugin);
+  cursor: default;
+  flex-shrink: 0;
+}
+.matrix-cell-cc {
+  background: var(--cat-plugin);
+}
+.matrix-cell-codex {
+  background: var(--cat-user);
+}
+
+.matrix-cell-running {
+  animation: matrix-cell-pulse 1.2s ease-in-out infinite;
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.matrix-cell-success {
+  background: var(--success);
+}
+.matrix-cell-error {
+  background: var(--error);
+}
+.matrix-cell-pending {
+  opacity: 0.55;
+}
+
+.matrix-cell-warning {
+  outline: 1px solid var(--warning);
+  outline-offset: -1px;
+}
+
+.matrix-cell-warn-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 9px;
+  line-height: 1;
+  background: var(--warning);
+  color: #fff;
+  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.matrix-cell-remove {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  border: none;
+  border-radius: 3px;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.matrix-cell:hover .matrix-cell-remove {
+  display: flex;
+}
+
+.matrix-grid-legend {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.matrix-grid-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.matrix-grid-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.matrix-grid-swatch-cc {
+  background: var(--cat-plugin);
+}
+.matrix-grid-swatch-codex {
+  background: var(--cat-user);
+}
+
+@keyframes matrix-cell-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
