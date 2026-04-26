@@ -17,6 +17,7 @@ import { listEvents } from "../db/events";
 import { refineTask } from "../refiner/refine";
 import type { AppState } from "../state/app";
 import { launchMatrixRun } from "../orchestrator/launch";
+import { estimateMatrix } from "../estimator";
 import {
   createProvider,
   deleteProvider,
@@ -330,6 +331,32 @@ export async function handleRequest(
   if (path === "/api/runs" && method === "GET") {
     return json(listMatrixRuns(app.db));
   }
+  if (path === "/api/runs/estimate" && method === "POST") {
+    const body = await readBody<{
+      cells?: Array<{
+        harness?: string;
+        providerId?: string;
+        modelId?: string;
+      }>;
+    }>(req);
+    if (!Array.isArray(body?.cells)) {
+      return badRequest("cells array required");
+    }
+    const triples = body.cells
+      .filter(
+        (c): c is { harness: string; providerId: string; modelId: string } =>
+          typeof c?.harness === "string" &&
+          typeof c?.providerId === "string" &&
+          typeof c?.modelId === "string",
+      )
+      .map((c) => ({
+        harness: c.harness,
+        providerId: c.providerId,
+        modelId: c.modelId,
+      }));
+    return json(estimateMatrix(app.db, triples));
+  }
+
   if (path === "/api/runs/launch" && method === "POST") {
     const body = await readBody<{
       taskId: string;

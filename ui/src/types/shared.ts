@@ -167,6 +167,11 @@ export type RunStatus =
 
 export type MatrixRunStatus = "running" | "completed" | "canceled";
 
+export interface MatrixEstimate {
+  cellsWithHistory: number;
+  medianMs: number;
+}
+
 export interface MatrixRun {
   id: string;
   taskId: string;
