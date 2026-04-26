@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discoverSkills, type SkillBundle } from "../src/skills/registry";
+import { discoverSkills, compareVersions, type SkillBundle } from "../src/skills/registry";
 import { materializeSkills } from "../src/skills/materialize";
 
 function makeFakeHome() {
@@ -254,6 +254,50 @@ test("materializeSkills(symlink) creates symlinks", async () => {
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("deduplicates plugin skills across versions, keeping highest", () => {
+  const home = makeFakeHome();
+  try {
+    // Two versions of the same plugin skill — only 5.0.7 should survive.
+    const newSkillsDir = join(
+      home,
+      ".claude/plugins/cache/superpowers/5.0.7/skills",
+    );
+    const oldSkillsDir = join(
+      home,
+      ".claude/plugins/cache/superpowers/4.1.1/skills",
+    );
+    mkdirSync(newSkillsDir, { recursive: true });
+    mkdirSync(oldSkillsDir, { recursive: true });
+    writeSkill(newSkillsDir, "foo", { description: "new foo" });
+    writeSkill(oldSkillsDir, "foo", { description: "old foo" });
+    const found = discoverSkills(home);
+    const foos = found.filter((s) => s.name === "foo");
+    expect(foos).toHaveLength(1);
+    expect(foos[0].description).toBe("new foo");
+    expect(foos[0].pluginVersion).toBe("5.0.7");
+    expect(foos[0].pluginName).toBe("superpowers");
+    expect(foos[0].id).toBe("plugin:superpowers:foo");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("compareVersions: numeric segments, missing segments, 'unknown'", () => {
+  expect(compareVersions("5.0.7", "4.1.1")).toBeGreaterThan(0);
+  expect(compareVersions("4.1.1", "5.0.7")).toBeLessThan(0);
+  expect(compareVersions("1.0", "1.0.0")).toBe(0);
+  expect(compareVersions("2.0", "1.9.9")).toBeGreaterThan(0);
+  // missing segments treated as 0
+  expect(compareVersions("1", "1.0")).toBe(0);
+  expect(compareVersions("1.10", "1.9")).toBeGreaterThan(0);
+  // v-prefix
+  expect(compareVersions("v2.0.0", "1.9.9")).toBeGreaterThan(0);
+  // "unknown" is lowest
+  expect(compareVersions("unknown", "0.0.1")).toBeLessThan(0);
+  expect(compareVersions("1.0.0", "unknown")).toBeGreaterThan(0);
+  expect(compareVersions("unknown", "unknown")).toBe(0);
 });
 
 test("name collision throws before copying anything", async () => {

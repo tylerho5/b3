@@ -4,7 +4,6 @@ import { Tasks } from "./pages/Tasks";
 import { Runs } from "./pages/Runs";
 import { RunDetail } from "./pages/RunDetail";
 import { Providers } from "./pages/Providers";
-import { Skills } from "./pages/Skills";
 import "./styles/shell.css";
 
 export function App() {
@@ -20,7 +19,6 @@ export function App() {
           />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/providers" element={<Providers />} />
-          <Route path="/skills" element={<Skills />} />
         </Routes>
       </Shell>
     </BrowserRouter>

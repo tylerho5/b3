@@ -7,6 +7,8 @@ import type {
   Task,
 } from "../types/shared";
 import { Chip } from "./ChipFilter";
+import { SkillPicker } from "./SkillPicker/Picker";
+import "../styles/skill-picker.css";
 
 const PER_COMBO_S = 60;
 
@@ -165,21 +167,11 @@ export function MatrixLauncher({
 
       <div className="launcher-row">
         <span className="launcher-label">skills</span>
-        {skills.map((s) => (
-          <Chip
-            key={s.id}
-            active={skillSel.has(s.id)}
-            onClick={() => toggle(setSkillSel, s.id)}
-            title={`${s.sourceLabel} — ${s.description}`}
-          >
-            {s.name}
-          </Chip>
-        ))}
-        {skills.length === 0 && (
-          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-            (no skills discovered)
-          </span>
-        )}
+        <SkillPicker
+          skills={skills}
+          selected={skillSel}
+          onChange={setSkillSel}
+        />
       </div>
 
       <div className="launcher-row">
@@ -210,9 +202,7 @@ export function MatrixLauncher({
         </div>
       </div>
 
-      {error && (
-        <div className="refiner-error">{error}</div>
-      )}
+      {error && <div className="refiner-error">{error}</div>}
     </div>
   );
 }

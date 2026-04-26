@@ -58,6 +58,8 @@ export interface SkillBundle {
   source: "user_claude" | "plugin" | "user_codex" | "user_agents";
   sourceLabel: string;
   path: string;
+  pluginName?: string;
+  pluginVersion?: string;
 }
 
 export type RunStatus =
