@@ -1,9 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { MatrixRun, ProviderConfig, Run } from "../types/shared";
+import type {
+  Harness,
+  MatrixRun,
+  Provider,
+  Run,
+  RunStatus,
+} from "../types/shared";
+import { providerPricingMode } from "../launcher/pricing";
 import { MatrixLauncher } from "../components/MatrixLauncher";
 import { SessionCard } from "../components/SessionCard";
 import { BroadcastBar } from "../components/BroadcastBar";
+import { MatrixGrid, type CellRunState } from "../components/MatrixGrid";
+import { cellId, type MatrixCell } from "../launcher/resolveCells";
 import { useEvents } from "../hooks/useEvents";
 import "../styles/runs.css";
 
@@ -11,7 +20,7 @@ export function Runs() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeCells, setActiveCells] = useState<Run[] | null>(null);
   const [history, setHistory] = useState<MatrixRun[]>([]);
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(
     new Set(),
   );
@@ -27,7 +36,7 @@ export function Runs() {
 
   useEffect(() => {
     void refreshHistory();
-    void api.getProviders().then((p) => setProviders(p.providers));
+    void api.listProviders().then((p) => setProviders(p.providers));
   }, []);
 
   useEffect(() => {
@@ -133,14 +142,34 @@ function ActiveMatrix({
 }: {
   matrixRunId: string;
   cells: Run[];
-  providers: ProviderConfig[];
+  providers: Provider[];
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   onClose: () => void;
 }) {
   const stream = useEvents(matrixRunId);
-  const pricingByProvider = (id: string) =>
-    providers.find((p) => p.id === id)?.pricingMode ?? "unknown";
+  const pricingByProvider = (id: string) => {
+    const p = providers.find((q) => q.id === id);
+    return p ? providerPricingMode(p.kind) : "unknown";
+  };
+
+  const gridCells = useMemo<MatrixCell[]>(
+    () =>
+      cells.map((c) => ({
+        id: cellId(c.harness, c.providerId, c.modelId),
+        harness: c.harness as Harness,
+        providerId: c.providerId,
+        modelId: c.modelId,
+      })),
+    [cells],
+  );
+  const gridState = useMemo<Record<string, CellRunState>>(() => {
+    const out: Record<string, CellRunState> = {};
+    for (const c of cells) {
+      out[cellId(c.harness, c.providerId, c.modelId)] = mapRunStatus(c.status);
+    }
+    return out;
+  }, [cells]);
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -165,6 +194,9 @@ function ActiveMatrix({
           </button>
         </div>
       </div>
+      {gridCells.length > 0 && (
+        <MatrixGrid cells={gridCells} state={gridState} />
+      )}
       <BroadcastBar
         matrixRunId={matrixRunId}
         selectedCount={selected.size}
@@ -189,4 +221,21 @@ function ActiveMatrix({
       </div>
     </section>
   );
+}
+
+function mapRunStatus(status: RunStatus): CellRunState {
+  switch (status) {
+    case "running":
+    case "testing":
+      return "running";
+    case "passed":
+      return "success";
+    case "failed":
+    case "error":
+    case "canceled":
+      return "error";
+    case "pending":
+    default:
+      return "pending";
+  }
 }

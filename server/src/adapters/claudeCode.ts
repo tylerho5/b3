@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { ModelCard } from "../config/types";
+import type { ProviderModel } from "../db/providerModels";
+import { buildSpawnEnv } from "../providers/recipes";
 import type {
   AdapterSpawnInput,
   HarnessAdapter,
@@ -37,21 +38,11 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
   readonly name = "claude_code" as const;
 
   async spawn(input: AdapterSpawnInput): Promise<SessionHandle> {
+    const recipeEnv = buildSpawnEnv(input.provider, input.model, "claude_code");
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      ...input.env,
+      ...recipeEnv,
     };
-    if (input.model.tier) {
-      const key = `ANTHROPIC_DEFAULT_${input.model.tier.toUpperCase()}_MODEL`;
-      env[key] = input.model.id;
-    } else {
-      env.ANTHROPIC_DEFAULT_HAIKU_MODEL =
-        env.ANTHROPIC_DEFAULT_HAIKU_MODEL ?? input.model.id;
-      env.ANTHROPIC_DEFAULT_SONNET_MODEL =
-        env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? input.model.id;
-      env.ANTHROPIC_DEFAULT_OPUS_MODEL =
-        env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? input.model.id;
-    }
 
     const args = [
       "-p",
@@ -62,7 +53,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       "--verbose",
       "--dangerously-skip-permissions",
       "--model",
-      input.model.id,
+      input.model.modelId,
     ];
 
     const proc = spawn("claude", args, {
@@ -269,7 +260,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     }
   }
 
-  estimateCost(usage: UsageBreakdown, model: ModelCard): number | null {
+  estimateCost(usage: UsageBreakdown, model: ProviderModel): number | null {
     if (model.inputCostPerMtok == null || model.outputCostPerMtok == null) {
       return null;
     }

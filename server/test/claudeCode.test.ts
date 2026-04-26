@@ -4,6 +4,32 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ClaudeCodeAdapter } from "../src/adapters/claudeCode";
 import type { NormalizedEvent } from "../src/adapters/types";
+import type { Provider } from "../src/db/providers";
+import type { ProviderModel } from "../src/db/providerModels";
+
+const SUBSCRIPTION_PROVIDER: Provider = {
+  id: "p-claude-sub",
+  name: "Claude (subscription)",
+  kind: "claude_subscription",
+  baseUrl: null,
+  apiKey: null,
+  apiKeyEnvRef: null,
+  createdAt: "2026-01-01",
+  updatedAt: "2026-01-01",
+};
+
+const HAIKU_MODEL: ProviderModel = {
+  id: "m-haiku",
+  providerId: SUBSCRIPTION_PROVIDER.id,
+  modelId: "claude-haiku-4-5",
+  displayName: "Claude Haiku 4.5",
+  contextLength: null,
+  inputCostPerMtok: null,
+  outputCostPerMtok: null,
+  tier: "haiku",
+  supportedParameters: null,
+  addedAt: "2026-01-01",
+};
 
 function probeClaude(): boolean {
   try {
@@ -13,7 +39,7 @@ function probeClaude(): boolean {
     return false;
   }
 }
-const HAVE_CLAUDE = probeClaude();
+const HAVE_CLAUDE = probeClaude() && !process.env.B3_SKIP_CLI_TESTS;
 
 function setupRepo(): string {
   const dir = mkdtempSync(join(tmpdir(), "b3-cc-"));
@@ -37,16 +63,8 @@ test.skipIf(!HAVE_CLAUDE)(
       runId: "test-run",
       workdir: dir,
       initialPrompt: "Reply with exactly: PONG",
-      env: {},
-      provider: {
-        harness: "claude_code",
-        id: "anthropic-direct",
-        label: "Anthropic",
-        pricingMode: "per_token",
-        env: {},
-        models: [],
-      },
-      model: { id: "claude-haiku-4-5", tier: "haiku" },
+      provider: SUBSCRIPTION_PROVIDER,
+      model: HAIKU_MODEL,
       skills: [],
       onEvent: (ev) => events.push(ev),
     });

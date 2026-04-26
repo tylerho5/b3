@@ -1,23 +1,99 @@
 // Mirrors server types — kept in sync by hand for v1. (Could be generated later.)
 
 export type Harness = "claude_code" | "codex";
-export type PricingMode = "per_token" | "subscription" | "unknown";
 
-export interface ModelCard {
+export type ProviderKind =
+  | "anthropic_api_direct"
+  | "openai_api_direct"
+  | "openrouter"
+  | "claude_subscription"
+  | "codex_subscription"
+  | "custom_anthropic_compat"
+  | "custom_openai_compat";
+
+export interface Provider {
   id: string;
-  tier?: "haiku" | "sonnet" | "opus";
-  inputCostPerMtok?: number;
-  outputCostPerMtok?: number;
+  name: string;
+  kind: ProviderKind;
+  baseUrl: string | null;
+  apiKey: string | null;
+  apiKeyEnvRef: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface ProviderConfig {
-  harness: Harness;
+export interface ProviderModel {
   id: string;
-  label: string;
-  pricingMode: PricingMode;
-  env: Record<string, string>;
-  codexProfile?: string;
-  models: ModelCard[];
+  providerId: string;
+  modelId: string;
+  displayName: string;
+  contextLength: number | null;
+  inputCostPerMtok: number | null;
+  outputCostPerMtok: number | null;
+  tier: string | null;
+  supportedParameters: string[] | null;
+  addedAt: string;
+}
+
+export interface ProviderModelInput {
+  modelId: string;
+  displayName: string;
+  contextLength?: number | null;
+  inputCostPerMtok?: number | null;
+  outputCostPerMtok?: number | null;
+  tier?: string | null;
+  supportedParameters?: string[] | null;
+}
+
+export interface CreateProviderInput {
+  name: string;
+  kind: ProviderKind;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  apiKeyEnvRef?: string | null;
+}
+
+export interface UpdateProviderInput {
+  name?: string;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  apiKeyEnvRef?: string | null;
+}
+
+export interface ProviderProbeResult {
+  ok: boolean;
+  message: string;
+  modelCount?: number;
+  authenticated?: boolean;
+  installed?: boolean;
+  version?: string;
+}
+
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  description?: string;
+  context_length?: number | null;
+  pricing?: {
+    prompt?: string;
+    completion?: string;
+  };
+  supported_parameters?: string[];
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+  };
+}
+
+export interface OpenRouterCatalog {
+  data: OpenRouterModel[];
+}
+
+export interface SubscriptionStatus {
+  installed: boolean;
+  authenticated: boolean;
+  version?: string;
+  details?: string;
 }
 
 export interface Task {
@@ -72,6 +148,11 @@ export type RunStatus =
   | "canceled";
 
 export type MatrixRunStatus = "running" | "completed" | "canceled";
+
+export interface MatrixEstimate {
+  cellsWithHistory: number;
+  medianMs: number;
+}
 
 export interface MatrixRun {
   id: string;
