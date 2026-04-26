@@ -175,3 +175,106 @@ test("DELETE /api/providers/:id returns 404 for unknown id", async () => {
   });
   expect(r.status).toBe(404);
 });
+
+test("POST /api/providers/:id/models adds models and returns them", async () => {
+  const created = await postJson("/api/providers", {
+    name: "OR",
+    kind: "openrouter",
+    apiKey: "k",
+  });
+  const { id } = (await created.json()) as { id: string };
+  const r = await postJson(`/api/providers/${id}/models`, {
+    models: [
+      {
+        modelId: "anthropic/claude-sonnet-4.6",
+        displayName: "Sonnet 4.6",
+        contextLength: 200000,
+        inputCostPerMtok: 3.0,
+        outputCostPerMtok: 15.0,
+        supportedParameters: ["tools"],
+      },
+      { modelId: "google/gemini-3-pro", displayName: "Gemini 3" },
+    ],
+  });
+  expect(r.status).toBe(200);
+  const body = (await r.json()) as { models: Array<{ modelId: string }> };
+  expect(body.models.map((m) => m.modelId).sort()).toEqual([
+    "anthropic/claude-sonnet-4.6",
+    "google/gemini-3-pro",
+  ]);
+});
+
+test("POST /api/providers/:id/models is idempotent", async () => {
+  const created = await postJson("/api/providers", {
+    name: "OR",
+    kind: "openrouter",
+    apiKey: "k",
+  });
+  const { id } = (await created.json()) as { id: string };
+  await postJson(`/api/providers/${id}/models`, {
+    models: [{ modelId: "x", displayName: "X" }],
+  });
+  await postJson(`/api/providers/${id}/models`, {
+    models: [{ modelId: "x", displayName: "X (renamed)" }],
+  });
+  const list = await (await t.fetch("/api/providers")).json() as {
+    models: Array<{ modelId: string; displayName: string }>;
+  };
+  expect(list.models).toHaveLength(1);
+  expect(list.models[0].displayName).toBe("X");
+});
+
+test("POST /api/providers/:id/models returns 404 for unknown provider", async () => {
+  const r = await postJson("/api/providers/01ZZZZZZZZZZZZZZZZZZZZZZZZ/models", {
+    models: [{ modelId: "x", displayName: "X" }],
+  });
+  expect(r.status).toBe(404);
+});
+
+test("POST /api/providers/:id/models requires models array", async () => {
+  const created = await postJson("/api/providers", {
+    name: "OR",
+    kind: "openrouter",
+    apiKey: "k",
+  });
+  const { id } = (await created.json()) as { id: string };
+  const r = await postJson(`/api/providers/${id}/models`, {});
+  expect(r.status).toBe(400);
+});
+
+test("DELETE /api/providers/:id/models/:modelId removes a model", async () => {
+  const created = await postJson("/api/providers", {
+    name: "OR",
+    kind: "openrouter",
+    apiKey: "k",
+  });
+  const { id } = (await created.json()) as { id: string };
+  await postJson(`/api/providers/${id}/models`, {
+    models: [{ modelId: "a", displayName: "A" }],
+  });
+  const r = await t.fetch(`/api/providers/${id}/models/a`, {
+    method: "DELETE",
+  });
+  expect(r.status).toBe(200);
+  const list = await (await t.fetch("/api/providers")).json() as {
+    models: unknown[];
+  };
+  expect(list.models).toHaveLength(0);
+});
+
+test("DELETE /api/providers/:id/models/:modelId encodes slashes in model id", async () => {
+  const created = await postJson("/api/providers", {
+    name: "OR",
+    kind: "openrouter",
+    apiKey: "k",
+  });
+  const { id } = (await created.json()) as { id: string };
+  await postJson(`/api/providers/${id}/models`, {
+    models: [{ modelId: "anthropic/claude-sonnet-4.6", displayName: "S" }],
+  });
+  const encoded = encodeURIComponent("anthropic/claude-sonnet-4.6");
+  const r = await t.fetch(`/api/providers/${id}/models/${encoded}`, {
+    method: "DELETE",
+  });
+  expect(r.status).toBe(200);
+});

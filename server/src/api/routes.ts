@@ -25,7 +25,12 @@ import {
   updateProvider,
   type ProviderKind,
 } from "../db/providers";
-import { listAllProviderModels } from "../db/providerModels";
+import {
+  addProviderModels,
+  listAllProviderModels,
+  removeProviderModel,
+  type AddProviderModelInput,
+} from "../db/providerModels";
 import {
   PROVIDER_KIND_META,
   requiresBaseUrl,
@@ -207,6 +212,29 @@ export async function handleRequest(
       deleteProvider(app.db, id);
       return json({ ok: true });
     }
+  }
+
+  const providerModels = path.match(/^\/api\/providers\/([^/]+)\/models$/);
+  if (providerModels && method === "POST") {
+    const id = providerModels[1];
+    if (!getProvider(app.db, id)) return notFound();
+    const body = await readBody<{ models?: AddProviderModelInput[] }>(req);
+    if (!Array.isArray(body?.models)) {
+      return badRequest("models array required");
+    }
+    const added = addProviderModels(app.db, id, body.models);
+    return json({ models: added });
+  }
+
+  const providerModelById = path.match(
+    /^\/api\/providers\/([^/]+)\/models\/(.+)$/,
+  );
+  if (providerModelById && method === "DELETE") {
+    const [, id, encodedModelId] = providerModelById;
+    if (!getProvider(app.db, id)) return notFound();
+    const modelId = decodeURIComponent(encodedModelId);
+    removeProviderModel(app.db, id, modelId);
+    return json({ ok: true });
   }
 
   // Skills
