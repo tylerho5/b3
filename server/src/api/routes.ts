@@ -1,4 +1,3 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import {
@@ -18,6 +17,8 @@ import { listEvents } from "../db/events";
 import { refineTask } from "../refiner/refine";
 import type { AppState } from "../state/app";
 import { launchMatrixRun } from "../orchestrator/launch";
+import { listProviders } from "../db/providers";
+import { listAllProviderModels } from "../db/providerModels";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -127,25 +128,16 @@ export async function handleRequest(
 
   // Providers
   if (path === "/api/providers" && method === "GET") {
-    let tomlText: string | null = null;
-    try {
-      tomlText = readFileSync(app.configPath, "utf-8");
-    } catch {
-      tomlText = null;
-    }
     return json({
-      version: app.config.version,
-      judge: app.config.judge,
-      providers: app.config.providers,
-      tomlText,
+      providers: listProviders(app.db),
+      models: listAllProviderModels(app.db),
     });
   }
   if (path === "/api/providers" && method === "PUT") {
-    const body = await readBody<{ toml: string }>(req);
-    if (typeof body?.toml !== "string") return badRequest("toml required");
-    writeFileSync(app.configPath, body.toml);
-    app.reloadConfig();
-    return json({ ok: true });
+    return json(
+      { error: "PUT /api/providers removed; use POST/PATCH/DELETE on DB-backed routes" },
+      { status: 410 },
+    );
   }
 
   // Skills
