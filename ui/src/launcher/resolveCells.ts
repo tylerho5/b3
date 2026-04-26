@@ -15,6 +15,19 @@ const KIND_HARNESSES: Record<ProviderKind, ReadonlyArray<Harness>> = {
   custom_openai_compat: ["codex"],
 };
 
+export function kindSupportsHarness(
+  kind: ProviderKind,
+  harness: Harness,
+): boolean {
+  return KIND_HARNESSES[kind].includes(harness);
+}
+
+export function harnessesForKind(
+  kind: ProviderKind,
+): ReadonlyArray<Harness> {
+  return KIND_HARNESSES[kind];
+}
+
 export interface MatrixCell {
   id: string;
   harness: Harness;
