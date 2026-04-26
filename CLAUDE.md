@@ -26,10 +26,13 @@ cd ui && bun run dev          # ui only
 ## Test suite
 
 ```bash
-cd server && bun test                  # full suite (~60-90s, includes integration)
-cd server && bun test test/db.test.ts  # single file
-cd server && bunx --bun tsc --noEmit -p .   # typecheck (run from server/, NOT root)
+cd server && bun test                          # full suite (~60-90s, includes integration)
+cd server && B3_SKIP_CLI_TESTS=1 bun test      # skip real-CLI tests (~6s, local dev)
+cd server && bun test test/db.test.ts          # single file
+cd server && bunx --bun tsc --noEmit -p .      # typecheck (run from server/, NOT root)
 ```
+
+`B3_SKIP_CLI_TESTS=1` skips the 7 tests that spawn `claude` / `codex` (the same ones that auto-skip when the binary isn't on PATH). Use during development to keep the loop tight; let the unflagged run gate releases.
 
 55 tests across 14 files. Pure unit + real-CLI integration. No mocks.
 
