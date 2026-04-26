@@ -46,15 +46,6 @@ test("GET /api/providers returns empty arrays on fresh DB", async () => {
   expect(body.models).toEqual([]);
 });
 
-test("PUT /api/providers returns 410 (legacy TOML write removed)", async () => {
-  const r = await t.fetch("/api/providers", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ toml: "version = 1" }),
-  });
-  expect(r.status).toBe(410);
-});
-
 async function postJson(path: string, body: unknown): Promise<Response> {
   return t.fetch(path, {
     method: "POST",

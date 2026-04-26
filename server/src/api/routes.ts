@@ -42,13 +42,6 @@ import {
   detectClaudeSubscription,
   detectCodexSubscription,
 } from "../providers/detectSubscription";
-import {
-  applyImportPlan,
-  buildImportPlan,
-  parseTomlPayload,
-  serializeToToml,
-  snapshotForExport,
-} from "../providers/tomlSerde";
 import { getSetting, putSetting } from "../db/appSettings";
 
 interface JsonInit extends ResponseInit {
@@ -164,12 +157,6 @@ export async function handleRequest(
       models: listAllProviderModels(app.db),
     });
   }
-  if (path === "/api/providers" && method === "PUT") {
-    return json(
-      { error: "PUT /api/providers removed; use POST/PATCH/DELETE on DB-backed routes" },
-      { status: 410 },
-    );
-  }
   if (path === "/api/providers" && method === "POST") {
     const body = await readBody<{
       name?: string;
@@ -203,27 +190,6 @@ export async function handleRequest(
       apiKeyEnvRef: body.apiKeyEnvRef ?? null,
     });
     return json(created);
-  }
-
-  if (path === "/api/providers/export" && method === "GET") {
-    const toml = serializeToToml(snapshotForExport(app.db));
-    return new Response(toml, {
-      status: 200,
-      headers: { "content-type": "application/toml; charset=utf-8" },
-    });
-  }
-  if (path === "/api/providers/import" && method === "POST") {
-    const body = await readBody<{ toml?: string; replace?: boolean }>(req);
-    if (typeof body?.toml !== "string") return badRequest("toml field required");
-    let parsed;
-    try {
-      parsed = parseTomlPayload(body.toml);
-    } catch (e) {
-      return badRequest(`invalid TOML: ${(e as Error).message}`);
-    }
-    const plan = buildImportPlan(parsed);
-    const result = applyImportPlan(app.db, plan, { replace: !!body.replace });
-    return json({ ok: true, ...result });
   }
 
   if (path === "/api/providers/openrouter/catalog" && method === "GET") {
@@ -449,7 +415,7 @@ export async function handleRequest(
     const task = getTask(app.db, m.matrixRun.taskId);
     if (!task) return notFound();
     const runDir = join(app.runsRoot, runId);
-    const tmpl = app.config.judge.template
+    const tmpl = (getSetting(app.db, "judge_template") ?? "")
       .replace("{task_name}", task.name)
       .replace("{task_prompt}", task.prompt)
       .replace("{test_command}", task.testCommand ?? "")

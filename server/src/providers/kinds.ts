@@ -1,5 +1,4 @@
-import type { Harness } from "../config/types";
-import type { ProviderKind } from "../db/providers";
+import type { Harness, ProviderKind } from "../db/providers";
 
 export interface ProviderKindMeta {
   supportedHarnesses: Harness[];

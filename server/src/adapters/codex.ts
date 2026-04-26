@@ -1,8 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { ModelCard, ProviderConfig } from "../config/types";
-import type { ProviderKind, Provider } from "../db/providers";
 import type { ProviderModel } from "../db/providerModels";
-import { buildSpawnEnv, type SpawnEnv } from "../providers/recipes";
+import { buildSpawnEnv } from "../providers/recipes";
 import type {
   AdapterSpawnInput,
   HarnessAdapter,
@@ -10,52 +8,6 @@ import type {
   SessionHandle,
   UsageBreakdown,
 } from "./types";
-
-// Phase 1 bridge — see claudeCode.ts. Phase 4 deletes this once the
-// orchestrator passes DB-shaped Provider rows directly.
-export function inferCodexKind(env: Record<string, string>): ProviderKind {
-  const baseUrl = env.OPENAI_BASE_URL;
-  const hasKey = !!env.OPENAI_API_KEY;
-  if (!baseUrl && !hasKey) return "codex_subscription";
-  if (baseUrl && baseUrl.includes("openrouter.ai")) return "openrouter";
-  if (baseUrl) return "custom_openai_compat";
-  return "openai_api_direct";
-}
-
-export function legacyToCodexSpawnEnv(
-  provider: ProviderConfig,
-  model: ModelCard,
-): SpawnEnv {
-  // codex_profile is a Codex-CLI-side mechanism (selects a profile from
-  // ~/.codex/config.toml). The recipe layer has no equivalent; bypass it and
-  // let process.env + the -p flag carry the auth. Phase 4 will revisit.
-  if (provider.codexProfile) return {};
-
-  const kind = inferCodexKind(provider.env);
-  const synthProvider: Provider = {
-    id: provider.id,
-    name: provider.label,
-    kind,
-    baseUrl: provider.env.OPENAI_BASE_URL ?? null,
-    apiKey: provider.env.OPENAI_API_KEY ?? null,
-    apiKeyEnvRef: null,
-    createdAt: "",
-    updatedAt: "",
-  };
-  const synthModel: ProviderModel = {
-    id: provider.id + ":" + model.id,
-    providerId: provider.id,
-    modelId: model.id,
-    displayName: model.id,
-    contextLength: null,
-    inputCostPerMtok: model.inputCostPerMtok ?? null,
-    outputCostPerMtok: model.outputCostPerMtok ?? null,
-    tier: model.tier ?? null,
-    supportedParameters: null,
-    addedAt: "",
-  };
-  return buildSpawnEnv(synthProvider, synthModel, "codex");
-}
 
 interface CodexRawItem {
   type?: string;
@@ -84,10 +36,9 @@ export class CodexAdapter implements HarnessAdapter {
   readonly name = "codex" as const;
 
   async spawn(input: AdapterSpawnInput): Promise<SessionHandle> {
-    const recipeEnv = legacyToCodexSpawnEnv(input.provider, input.model);
+    const recipeEnv = buildSpawnEnv(input.provider, input.model, "codex");
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      ...input.env,
       ...recipeEnv,
     };
 
@@ -97,11 +48,8 @@ export class CodexAdapter implements HarnessAdapter {
       "--skip-git-repo-check",
       "--full-auto",
       "-m",
-      input.model.id,
+      input.model.modelId,
     ];
-    if (input.provider.codexProfile) {
-      args.push("-p", input.provider.codexProfile);
-    }
     args.push(input.initialPrompt);
 
     const proc = spawn("codex", args, {
@@ -373,7 +321,7 @@ export class CodexAdapter implements HarnessAdapter {
     }
   }
 
-  estimateCost(usage: UsageBreakdown, model: ModelCard): number | null {
+  estimateCost(usage: UsageBreakdown, model: ProviderModel): number | null {
     if (model.inputCostPerMtok == null || model.outputCostPerMtok == null) {
       return null;
     }

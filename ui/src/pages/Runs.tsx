@@ -3,10 +3,11 @@ import { api } from "../api/client";
 import type {
   Harness,
   MatrixRun,
-  ProviderConfig,
+  Provider,
   Run,
   RunStatus,
 } from "../types/shared";
+import { providerPricingMode } from "../launcher/pricing";
 import { MatrixLauncher } from "../components/MatrixLauncher";
 import { SessionCard } from "../components/SessionCard";
 import { BroadcastBar } from "../components/BroadcastBar";
@@ -19,7 +20,7 @@ export function Runs() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeCells, setActiveCells] = useState<Run[] | null>(null);
   const [history, setHistory] = useState<MatrixRun[]>([]);
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(
     new Set(),
   );
@@ -35,7 +36,7 @@ export function Runs() {
 
   useEffect(() => {
     void refreshHistory();
-    void api.getProviders().then((p) => setProviders(p.providers));
+    void api.listProviders().then((p) => setProviders(p.providers));
   }, []);
 
   useEffect(() => {
@@ -141,14 +142,16 @@ function ActiveMatrix({
 }: {
   matrixRunId: string;
   cells: Run[];
-  providers: ProviderConfig[];
+  providers: Provider[];
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   onClose: () => void;
 }) {
   const stream = useEvents(matrixRunId);
-  const pricingByProvider = (id: string) =>
-    providers.find((p) => p.id === id)?.pricingMode ?? "unknown";
+  const pricingByProvider = (id: string) => {
+    const p = providers.find((q) => q.id === id);
+    return p ? providerPricingMode(p.kind) : "unknown";
+  };
 
   const gridCells = useMemo<MatrixCell[]>(
     () =>

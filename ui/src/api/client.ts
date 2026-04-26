@@ -2,7 +2,6 @@ import type {
   Task,
   TaskInput,
   RefinedTask,
-  ProviderConfig,
   Provider,
   ProviderModel,
   ProviderModelInput,
@@ -79,23 +78,6 @@ export const api = {
     );
   },
 
-  async getProviders(): Promise<{
-    version: number;
-    judge: { template: string };
-    providers: ProviderConfig[];
-    tomlText: string | null;
-  }> {
-    return jsonOrThrow(await fetch("/api/providers"));
-  },
-  async putProviders(toml: string): Promise<void> {
-    const res = await fetch("/api/providers", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toml }),
-    });
-    if (!res.ok) throw new Error(res.statusText);
-  },
-
   async listProviders(): Promise<{
     providers: Provider[];
     models: ProviderModel[];
@@ -159,23 +141,6 @@ export const api = {
       await fetch(
         `/api/providers/openrouter/catalog?providerId=${encodeURIComponent(providerId)}`,
       ),
-    );
-  },
-  async exportProvidersToml(): Promise<string> {
-    const res = await fetch("/api/providers/export");
-    if (!res.ok) throw new Error(res.statusText);
-    return res.text();
-  },
-  async importProvidersToml(
-    toml: string,
-    replace: boolean,
-  ): Promise<{ ok: true } & Record<string, unknown>> {
-    return jsonOrThrow(
-      await fetch("/api/providers/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ toml, replace }),
-      }),
     );
   },
   async getSubscriptionStatus(harness: Harness): Promise<SubscriptionStatus> {

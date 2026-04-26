@@ -57,11 +57,23 @@ test("anthropic_api_direct × claude_code uses tier-specific model when present"
   expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined();
 });
 
-test("subscription kinds produce empty env (CLI uses keychain)", () => {
+test("claude_subscription emits only tier-aware model env (CLI uses keychain)", () => {
   const env = buildSpawnEnv(
     baseProvider({ kind: "claude_subscription", apiKey: null }),
-    baseModel(),
+    baseModel({ modelId: "claude-haiku-4-5", tier: "haiku" }),
     "claude_code",
+  );
+  expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+  expect(env.ANTHROPIC_BASE_URL).toBeUndefined();
+  expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe("claude-haiku-4-5");
+});
+
+test("codex_subscription emits empty env (CLI uses keychain, no Anthropic vars)", () => {
+  const env = buildSpawnEnv(
+    baseProvider({ kind: "codex_subscription", apiKey: null }),
+    baseModel({ modelId: "gpt-5.4", tier: null }),
+    "codex",
   );
   expect(Object.keys(env)).toHaveLength(0);
 });

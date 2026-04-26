@@ -15,8 +15,8 @@ test("openDb creates tables on first run", () => {
   expect(names).toContain("run_segments");
   expect(names).toContain("events");
   expect(names).toContain("skill_bundles");
-  expect(names).toContain("providers_cache");
   expect(names).toContain("schema_migrations");
+  expect(names).not.toContain("providers_cache");
 });
 
 test("migrations are idempotent", () => {
