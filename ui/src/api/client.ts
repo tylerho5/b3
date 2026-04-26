@@ -14,6 +14,7 @@ import type {
   Harness,
   SkillBundle,
   MatrixRun,
+  MatrixEstimate,
   Run,
   RunSegment,
 } from "../types/shared";
@@ -230,6 +231,17 @@ export const api = {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),
+      }),
+    );
+  },
+  async estimateRuns(
+    cells: Array<{ harness: string; providerId: string; modelId: string }>,
+  ): Promise<MatrixEstimate> {
+    return jsonOrThrow(
+      await fetch("/api/runs/estimate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ cells }),
       }),
     );
   },
