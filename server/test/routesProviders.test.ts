@@ -278,3 +278,99 @@ test("DELETE /api/providers/:id/models/:modelId encodes slashes in model id", as
   });
   expect(r.status).toBe(200);
 });
+
+test("POST /api/providers/:id/probe returns 404 for unknown provider", async () => {
+  const r = await postJson(
+    "/api/providers/01ZZZZZZZZZZZZZZZZZZZZZZZZ/probe",
+    {},
+  );
+  expect(r.status).toBe(404);
+});
+
+test("POST /api/providers/:id/probe (openrouter) hits catalog and reports model count", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({ data: [{ id: "a" }, { id: "b" }, { id: "c" }] }),
+      { status: 200 },
+    )) as typeof fetch;
+  try {
+    const created = await postJson("/api/providers", {
+      name: "OR",
+      kind: "openrouter",
+      apiKey: "or-key",
+    });
+    const { id } = (await created.json()) as { id: string };
+    const r = await postJson(`/api/providers/${id}/probe`, {});
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { ok: boolean; modelCount?: number };
+    expect(body.ok).toBe(true);
+    expect(body.modelCount).toBe(3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /api/providers/:id/probe (openrouter) reports error on upstream failure", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response("nope", { status: 401 })) as typeof fetch;
+  try {
+    const created = await postJson("/api/providers", {
+      name: "OR",
+      kind: "openrouter",
+      apiKey: "bad-key",
+    });
+    const { id } = (await created.json()) as { id: string };
+    const r = await postJson(`/api/providers/${id}/probe`, {});
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { ok: boolean; message: string };
+    expect(body.ok).toBe(false);
+    expect(body.message).toMatch(/401/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /api/providers/:id/probe (api_direct) verifies credentials", async () => {
+  const created = await postJson("/api/providers", {
+    name: "Anthropic",
+    kind: "anthropic_api_direct",
+    apiKey: "sk-test",
+  });
+  const { id } = (await created.json()) as { id: string };
+  const r = await postJson(`/api/providers/${id}/probe`, {});
+  const body = (await r.json()) as { ok: boolean };
+  expect(body.ok).toBe(true);
+});
+
+test("POST /api/providers/:id/probe (api_direct) fails when env-ref missing", async () => {
+  delete process.env.B3_PROBE_TEST_KEY;
+  const created = await postJson("/api/providers", {
+    name: "Anthropic",
+    kind: "anthropic_api_direct",
+    apiKeyEnvRef: "B3_PROBE_TEST_KEY",
+  });
+  const { id } = (await created.json()) as { id: string };
+  const r = await postJson(`/api/providers/${id}/probe`, {});
+  const body = (await r.json()) as { ok: boolean; message: string };
+  expect(body.ok).toBe(false);
+  expect(body.message).toMatch(/B3_PROBE_TEST_KEY/);
+});
+
+test("POST /api/providers/:id/probe (custom_*) requires base url", async () => {
+  // baseUrl is enforced at create time (400) — we can't even create the
+  // provider without it. So probe never sees a malformed custom_*; this test
+  // confirms the probe also validates url shape on a hand-built row.
+  const { createProvider } = await import("../src/db/providers");
+  const p = createProvider(t.app.db, {
+    name: "Custom",
+    kind: "custom_anthropic_compat",
+    apiKey: "k",
+    baseUrl: "not-a-url",
+  });
+  const r = await postJson(`/api/providers/${p.id}/probe`, {});
+  const body = (await r.json()) as { ok: boolean; message: string };
+  expect(body.ok).toBe(false);
+  expect(body.message).toMatch(/url/i);
+});

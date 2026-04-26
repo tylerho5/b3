@@ -36,6 +36,11 @@ import {
   requiresBaseUrl,
   requiresCredentials,
 } from "../providers/kinds";
+import { fetchOpenRouterCatalog } from "../providers/openrouter";
+import {
+  detectClaudeSubscription,
+  detectCodexSubscription,
+} from "../providers/detectSubscription";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -237,6 +242,15 @@ export async function handleRequest(
     return json({ ok: true });
   }
 
+  const providerProbe = path.match(/^\/api\/providers\/([^/]+)\/probe$/);
+  if (providerProbe && method === "POST") {
+    const id = providerProbe[1];
+    const provider = getProvider(app.db, id);
+    if (!provider) return notFound();
+    const result = await probeProvider(provider);
+    return json(result);
+  }
+
   // Skills
   if (path === "/api/skills" && method === "GET") {
     app.reloadSkills();
@@ -413,4 +427,103 @@ async function deliverPerSession(
   if (!inject) return false;
   await inject(text);
   return true;
+}
+
+interface ProbeResult {
+  ok: boolean;
+  message: string;
+  modelCount?: number;
+  installed?: boolean;
+  authenticated?: boolean;
+  version?: string;
+}
+
+async function probeProvider(
+  provider: import("../db/providers").Provider,
+): Promise<ProbeResult> {
+  switch (provider.kind) {
+    case "openrouter": {
+      const key = resolveProviderKey(provider);
+      if (!key.ok) return { ok: false, message: key.message };
+      try {
+        const cat = await fetchOpenRouterCatalog(key.value);
+        return {
+          ok: true,
+          message: "ok",
+          modelCount: cat.data.length,
+        };
+      } catch (e) {
+        return { ok: false, message: (e as Error).message };
+      }
+    }
+    case "claude_subscription": {
+      const s = detectClaudeSubscription();
+      return {
+        ok: s.installed && s.authenticated,
+        message:
+          !s.installed
+            ? "claude CLI not on PATH"
+            : !s.authenticated
+              ? "claude CLI not authenticated (run `claude login`)"
+              : "ok",
+        installed: s.installed,
+        authenticated: s.authenticated,
+        version: s.version,
+      };
+    }
+    case "codex_subscription": {
+      const s = detectCodexSubscription();
+      return {
+        ok: s.installed && s.authenticated,
+        message:
+          !s.installed
+            ? "codex CLI not on PATH"
+            : !s.authenticated
+              ? "codex CLI not authenticated (run `codex login`)"
+              : "ok",
+        installed: s.installed,
+        authenticated: s.authenticated,
+        version: s.version,
+      };
+    }
+    case "anthropic_api_direct":
+    case "openai_api_direct": {
+      const key = resolveProviderKey(provider);
+      return key.ok
+        ? { ok: true, message: "credentials present" }
+        : { ok: false, message: key.message };
+    }
+    case "custom_anthropic_compat":
+    case "custom_openai_compat": {
+      if (!provider.baseUrl) {
+        return { ok: false, message: "baseUrl missing" };
+      }
+      try {
+        new URL(provider.baseUrl);
+      } catch {
+        return { ok: false, message: `invalid base url: ${provider.baseUrl}` };
+      }
+      const key = resolveProviderKey(provider);
+      return key.ok
+        ? { ok: true, message: "credentials present and base url valid" }
+        : { ok: false, message: key.message };
+    }
+  }
+}
+
+function resolveProviderKey(
+  provider: import("../db/providers").Provider,
+): { ok: true; value: string } | { ok: false; message: string } {
+  if (provider.apiKey) return { ok: true, value: provider.apiKey };
+  if (provider.apiKeyEnvRef) {
+    const v = process.env[provider.apiKeyEnvRef];
+    if (!v) {
+      return {
+        ok: false,
+        message: `env var ${provider.apiKeyEnvRef} is not set in the server environment`,
+      };
+    }
+    return { ok: true, value: v };
+  }
+  return { ok: false, message: "no credentials configured" };
 }
