@@ -17,8 +17,20 @@ import { listEvents } from "../db/events";
 import { refineTask } from "../refiner/refine";
 import type { AppState } from "../state/app";
 import { launchMatrixRun } from "../orchestrator/launch";
-import { listProviders } from "../db/providers";
+import {
+  createProvider,
+  deleteProvider,
+  getProvider,
+  listProviders,
+  updateProvider,
+  type ProviderKind,
+} from "../db/providers";
 import { listAllProviderModels } from "../db/providerModels";
+import {
+  PROVIDER_KIND_META,
+  requiresBaseUrl,
+  requiresCredentials,
+} from "../providers/kinds";
 
 interface JsonInit extends ResponseInit {
   status?: number;
@@ -138,6 +150,63 @@ export async function handleRequest(
       { error: "PUT /api/providers removed; use POST/PATCH/DELETE on DB-backed routes" },
       { status: 410 },
     );
+  }
+  if (path === "/api/providers" && method === "POST") {
+    const body = await readBody<{
+      name?: string;
+      kind?: string;
+      baseUrl?: string | null;
+      apiKey?: string | null;
+      apiKeyEnvRef?: string | null;
+    }>(req);
+    if (!body?.name || !body?.kind) {
+      return badRequest("name and kind required");
+    }
+    if (!(body.kind in PROVIDER_KIND_META)) {
+      return badRequest(`invalid kind: ${body.kind}`);
+    }
+    const kind = body.kind as ProviderKind;
+    if (requiresBaseUrl(kind) && !body.baseUrl) {
+      return badRequest(`kind ${kind} requires baseUrl`);
+    }
+    if (
+      requiresCredentials(kind) &&
+      !body.apiKey &&
+      !body.apiKeyEnvRef
+    ) {
+      return badRequest(`kind ${kind} requires credentials (apiKey or apiKeyEnvRef)`);
+    }
+    const created = createProvider(app.db, {
+      name: body.name,
+      kind,
+      baseUrl: body.baseUrl ?? null,
+      apiKey: body.apiKey ?? null,
+      apiKeyEnvRef: body.apiKeyEnvRef ?? null,
+    });
+    return json(created);
+  }
+
+  const providerById = path.match(/^\/api\/providers\/([^/]+)$/);
+  if (providerById) {
+    const id = providerById[1];
+    if (method === "PATCH") {
+      const existing = getProvider(app.db, id);
+      if (!existing) return notFound();
+      const body = await readBody<{
+        name?: string;
+        baseUrl?: string | null;
+        apiKey?: string | null;
+        apiKeyEnvRef?: string | null;
+      }>(req);
+      const updated = updateProvider(app.db, id, body);
+      return json(updated);
+    }
+    if (method === "DELETE") {
+      const existing = getProvider(app.db, id);
+      if (!existing) return notFound();
+      deleteProvider(app.db, id);
+      return json({ ok: true });
+    }
   }
 
   // Skills
