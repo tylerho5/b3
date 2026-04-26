@@ -2,7 +2,6 @@ import type {
   Task,
   TaskInput,
   RefinedTask,
-  ProviderConfig,
   Provider,
   ProviderModel,
   ProviderModelInput,
@@ -77,23 +76,6 @@ export const api = {
         signal,
       }),
     );
-  },
-
-  async getProviders(): Promise<{
-    version: number;
-    judge: { template: string };
-    providers: ProviderConfig[];
-    tomlText: string | null;
-  }> {
-    return jsonOrThrow(await fetch("/api/providers"));
-  },
-  async putProviders(toml: string): Promise<void> {
-    const res = await fetch("/api/providers", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toml }),
-    });
-    if (!res.ok) throw new Error(res.statusText);
   },
 
   async listProviders(): Promise<{

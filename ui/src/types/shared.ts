@@ -1,24 +1,6 @@
 // Mirrors server types — kept in sync by hand for v1. (Could be generated later.)
 
 export type Harness = "claude_code" | "codex";
-export type PricingMode = "per_token" | "subscription" | "unknown";
-
-export interface ModelCard {
-  id: string;
-  tier?: "haiku" | "sonnet" | "opus";
-  inputCostPerMtok?: number;
-  outputCostPerMtok?: number;
-}
-
-export interface ProviderConfig {
-  harness: Harness;
-  id: string;
-  label: string;
-  pricingMode: PricingMode;
-  env: Record<string, string>;
-  codexProfile?: string;
-  models: ModelCard[];
-}
 
 export type ProviderKind =
   | "anthropic_api_direct"
