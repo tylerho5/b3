@@ -17,7 +17,6 @@ export function createTestApp(): TestApp {
   const app = createAppState({
     dbPath: ":memory:",
     runsRoot,
-    importLegacyToml: false,
   });
   const fetchLocal = async (
     path: string,

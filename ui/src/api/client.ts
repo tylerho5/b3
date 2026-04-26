@@ -143,23 +143,6 @@ export const api = {
       ),
     );
   },
-  async exportProvidersToml(): Promise<string> {
-    const res = await fetch("/api/providers/export");
-    if (!res.ok) throw new Error(res.statusText);
-    return res.text();
-  },
-  async importProvidersToml(
-    toml: string,
-    replace: boolean,
-  ): Promise<{ ok: true } & Record<string, unknown>> {
-    return jsonOrThrow(
-      await fetch("/api/providers/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ toml, replace }),
-      }),
-    );
-  },
   async getSubscriptionStatus(harness: Harness): Promise<SubscriptionStatus> {
     return jsonOrThrow(
       await fetch(`/api/subscriptions/status?harness=${harness}`),

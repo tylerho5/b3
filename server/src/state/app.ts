@@ -9,7 +9,6 @@ import type { MatrixHandle } from "../orchestrator/runMatrix";
 import type { BroadcastQueue } from "../orchestrator/broadcast";
 import type { SkillBundle } from "../skills/registry";
 import { discoverSkills } from "../skills/registry";
-import { importLegacyTomlOnce } from "../providers/importLegacyToml";
 
 export interface ActiveMatrix {
   matrixRunId: string;
@@ -34,15 +33,9 @@ export function defaultRunsRoot(cwd = process.cwd()): string {
   return join(cwd, "runs");
 }
 
-function defaultLegacyConfigPath(home = homedir()): string {
-  return process.env.B3_CONFIG_PATH ?? join(home, ".config/b3/config.toml");
-}
-
 export function createAppState(opts?: {
   dbPath?: string;
-  configPath?: string;
   runsRoot?: string;
-  importLegacyToml?: boolean;
 }): AppState {
   const dataDir = defaultDataDir();
   mkdirSync(dataDir, { recursive: true });
@@ -52,22 +45,6 @@ export function createAppState(opts?: {
 
   const db = openDb(dbPath);
   runMigrations(db);
-
-  // Default-on for production callers (no opts → reading user's home dir).
-  // Tests that pass an explicit dbPath get default-off so the importer
-  // doesn't reach into the dev's actual ~/.config/b3.
-  const shouldImport = opts?.importLegacyToml ?? opts === undefined;
-  if (shouldImport) {
-    const importResult = importLegacyTomlOnce({
-      db,
-      configPath: opts?.configPath ?? defaultLegacyConfigPath(),
-    });
-    if (importResult.imported) {
-      console.log(
-        `[b3] imported legacy TOML: ${importResult.providersAdded} providers, ${importResult.modelsAdded} models`,
-      );
-    }
-  }
 
   const state: AppState = {
     db,

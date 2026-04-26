@@ -37,7 +37,6 @@ function makeApp(): {
   const app = createAppState({
     dbPath: join(dbDir, "e2e.db"),
     runsRoot,
-    importLegacyToml: false,
   });
   const provider = createProvider(app.db, {
     name: "Claude (subscription)",
