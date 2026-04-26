@@ -10,7 +10,6 @@ import type {
 } from "../types/shared";
 import { Chip } from "./ChipFilter";
 import { SkillPicker } from "./SkillPicker/Picker";
-import { MatrixGrid } from "./MatrixGrid";
 import {
   harnessesForKind,
   kindSupportsHarness,
@@ -253,16 +252,9 @@ export function MatrixLauncher({
 
       <aside className="launcher-side">
         <div className="launcher-side-head">matrix</div>
-        <MatrixGrid
-          cells={cells}
-          onRemove={(id) =>
-            setRemovedCells((s) => {
-              const next = new Set(s);
-              next.add(id);
-              return next;
-            })
-          }
-        />
+        <div style={{ fontSize: 11, color: "var(--text-muted)", padding: "4px 0" }}>
+          {cells.length} cell{cells.length === 1 ? "" : "s"}
+        </div>
         <MatrixLegend
           cells={cells}
           providers={providers}

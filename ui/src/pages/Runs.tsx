@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type {
-  Harness,
   MatrixRun,
   Provider,
   Run,
@@ -12,7 +11,6 @@ import { MatrixLauncher } from "../components/MatrixLauncher";
 import { SessionCard } from "../components/SessionCard";
 import { BroadcastBar } from "../components/BroadcastBar";
 import { MatrixGrid, type CellRunState } from "../components/MatrixGrid";
-import { cellId, type MatrixCell } from "../launcher/resolveCells";
 import { useEvents } from "../hooks/useEvents";
 import "../styles/runs.css";
 
@@ -153,21 +151,9 @@ function ActiveMatrix({
     return p ? providerPricingMode(p.kind) : "unknown";
   };
 
-  const gridCells = useMemo<MatrixCell[]>(
-    () =>
-      cells.map((c) => ({
-        id: cellId(c.harness, c.providerId, c.modelId),
-        harness: c.harness as Harness,
-        providerId: c.providerId,
-        modelId: c.modelId,
-      })),
-    [cells],
-  );
   const gridState = useMemo<Record<string, CellRunState>>(() => {
     const out: Record<string, CellRunState> = {};
-    for (const c of cells) {
-      out[cellId(c.harness, c.providerId, c.modelId)] = mapRunStatus(c.status);
-    }
+    for (const c of cells) out[c.id] = mapRunStatus(c.status);
     return out;
   }, [cells]);
 
@@ -194,8 +180,8 @@ function ActiveMatrix({
           </button>
         </div>
       </div>
-      {gridCells.length > 0 && (
-        <MatrixGrid cells={gridCells} state={gridState} />
+      {cells.length > 0 && (
+        <MatrixGrid mode="live" runs={cells} state={gridState} />
       )}
       <BroadcastBar
         matrixRunId={matrixRunId}
