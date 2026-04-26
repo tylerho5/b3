@@ -8,3 +8,4 @@ b3.db-*
 .env
 .env.local
 .claude/
+.worktrees/
