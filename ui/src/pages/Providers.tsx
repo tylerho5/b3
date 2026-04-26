@@ -1,124 +1,150 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { ProviderConfig } from "../types/shared";
+import type { Provider, ProviderModel } from "../types/shared";
+import { SubscriptionTile } from "../components/providers/SubscriptionTile";
+import { OpenRouterTile } from "../components/providers/OpenRouterTile";
+import { ApiProviderRow } from "../components/providers/ApiProviderRow";
+import { AddProviderModal } from "../components/providers/AddProviderModal";
+import { JudgeTemplateEditor } from "../components/providers/JudgeTemplateEditor";
 import "../styles/providers.css";
 
 export function Providers() {
-  const [toml, setToml] = useState<string | null>(null);
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [models, setModels] = useState<ProviderModel[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [original, setOriginal] = useState<string>("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Provider | null>(null);
 
   const refresh = async () => {
-    const r = await api.getProviders();
-    setProviders(r.providers);
-    if (r.tomlText != null) {
-      setOriginal(r.tomlText);
+    setError(null);
+    try {
+      const r = await api.listProviders();
+      setProviders(r.providers);
+      setModels(r.models);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const r = await api.getProviders();
-        setProviders(r.providers);
-        const text = r.tomlText ?? "";
-        setToml(text);
-        setOriginal(text);
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    })();
+    void refresh();
   }, []);
 
-  const save = async () => {
-    if (toml == null) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await api.putProviders(toml);
-      setOriginal(toml);
-      setSavedAt(new Date().toLocaleTimeString());
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
+  const modelsByProvider = useMemo(() => {
+    const m = new Map<string, ProviderModel[]>();
+    for (const row of models) {
+      const list = m.get(row.providerId) ?? [];
+      list.push(row);
+      m.set(row.providerId, list);
     }
+    return m;
+  }, [models]);
+
+  const claudeSub = providers.find((p) => p.kind === "claude_subscription") ?? null;
+  const codexSub = providers.find((p) => p.kind === "codex_subscription") ?? null;
+  const openrouter = providers.find((p) => p.kind === "openrouter") ?? null;
+  const openrouterModels = openrouter
+    ? modelsByProvider.get(openrouter.id) ?? []
+    : [];
+  const apiProviders = providers.filter(
+    (p) =>
+      p.kind === "anthropic_api_direct" ||
+      p.kind === "openai_api_direct" ||
+      p.kind === "custom_anthropic_compat" ||
+      p.kind === "custom_openai_compat",
+  );
+
+  const openAdd = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
+  const openEdit = (p: Provider) => {
+    setEditing(p);
+    setModalOpen(true);
+  };
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditing(null);
+  };
+  const onSaved = () => {
+    void refresh();
   };
 
-  const dirty = toml != null && toml !== original;
-
   return (
-    <div className="providers-page">
-      <div className="providers-toml-pane">
-        <div className="providers-toml-toolbar">
-          <strong style={{ fontSize: 13 }}>~/.config/b3/config.toml</strong>
+    <div className="providers-page-v2">
+      {error && <div className="callout-error">{error}</div>}
+      {loading && <div className="meta-line dim">loading…</div>}
+
+      <section className="providers-section">
+        <h2 className="providers-section-head">Subscriptions</h2>
+        <div className="tile-grid">
+          <SubscriptionTile
+            harness="claude_code"
+            existing={claudeSub}
+            onChanged={onSaved}
+          />
+          <SubscriptionTile
+            harness="codex"
+            existing={codexSub}
+            onChanged={onSaved}
+          />
+        </div>
+      </section>
+
+      <section className="providers-section">
+        <h2 className="providers-section-head">OpenRouter</h2>
+        <OpenRouterTile
+          existing={openrouter}
+          models={openrouterModels}
+          onChanged={onSaved}
+        />
+      </section>
+
+      <section className="providers-section">
+        <div className="providers-section-bar">
+          <h2 className="providers-section-head">API providers</h2>
           <span className="spacer" />
-          {savedAt && (
-            <span className="providers-saved">saved {savedAt}</span>
-          )}
-          <button
-            type="button"
-            className="primary"
-            disabled={saving || !dirty}
-            onClick={save}
-          >
-            {saving ? "saving…" : "save"}
+          <button type="button" className="primary" onClick={openAdd}>
+            + add provider
           </button>
         </div>
-        <textarea
-          className="providers-toml"
-          value={toml ?? ""}
-          onChange={(e) => setToml(e.target.value)}
-          spellCheck={false}
-        />
-        {error && (
-          <div
-            className="refiner-error"
-            style={{ margin: 12 }}
-          >
-            {error}
+        {apiProviders.length === 0 ? (
+          <div className="providers-empty">
+            No API providers yet. Add one above to get started.
+          </div>
+        ) : (
+          <div className="api-list">
+            {apiProviders.map((p) => (
+              <ApiProviderRow
+                key={p.id}
+                provider={p}
+                modelCount={modelsByProvider.get(p.id)?.length ?? 0}
+                onEdit={() => openEdit(p)}
+                onDeleted={onSaved}
+              />
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="providers-summary-pane">
-        <h3
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            color: "var(--text-muted)",
-            margin: "0 0 12px",
-          }}
-        >
-          {providers.length} provider{providers.length === 1 ? "" : "s"} loaded
-        </h3>
-        {providers.map((p) => (
-          <div className="provider-card" key={`${p.harness}:${p.id}`}>
-            <div className="ph">{p.harness}</div>
-            <h4>
-              {p.label}
-              <span className="pricing">{p.pricingMode}</span>
-            </h4>
-            <div className="models">
-              {p.models.length === 0 && (
-                <span style={{ color: "var(--text-muted)" }}>no models</span>
-              )}
-              {p.models.map((m) => (
-                <span className="model-tag" key={m.id}>
-                  {m.id}
-                  {m.tier && ` (${m.tier})`}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      <section className="providers-section">
+        <h2 className="providers-section-head">Judge template</h2>
+        <JudgeTemplateEditor />
+      </section>
+
+      {modalOpen && (
+        <AddProviderModal
+          editing={editing}
+          existingModels={
+            editing ? modelsByProvider.get(editing.id) ?? [] : undefined
+          }
+          onClose={closeModal}
+          onSaved={onSaved}
+        />
+      )}
     </div>
   );
 }
-

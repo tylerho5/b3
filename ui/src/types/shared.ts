@@ -20,6 +20,100 @@ export interface ProviderConfig {
   models: ModelCard[];
 }
 
+export type ProviderKind =
+  | "anthropic_api_direct"
+  | "openai_api_direct"
+  | "openrouter"
+  | "claude_subscription"
+  | "codex_subscription"
+  | "custom_anthropic_compat"
+  | "custom_openai_compat";
+
+export interface Provider {
+  id: string;
+  name: string;
+  kind: ProviderKind;
+  baseUrl: string | null;
+  apiKey: string | null;
+  apiKeyEnvRef: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProviderModel {
+  id: string;
+  providerId: string;
+  modelId: string;
+  displayName: string;
+  contextLength: number | null;
+  inputCostPerMtok: number | null;
+  outputCostPerMtok: number | null;
+  tier: string | null;
+  supportedParameters: string[] | null;
+  addedAt: string;
+}
+
+export interface ProviderModelInput {
+  modelId: string;
+  displayName: string;
+  contextLength?: number | null;
+  inputCostPerMtok?: number | null;
+  outputCostPerMtok?: number | null;
+  tier?: string | null;
+  supportedParameters?: string[] | null;
+}
+
+export interface CreateProviderInput {
+  name: string;
+  kind: ProviderKind;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  apiKeyEnvRef?: string | null;
+}
+
+export interface UpdateProviderInput {
+  name?: string;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  apiKeyEnvRef?: string | null;
+}
+
+export interface ProviderProbeResult {
+  ok: boolean;
+  message: string;
+  modelCount?: number;
+  authenticated?: boolean;
+  installed?: boolean;
+  version?: string;
+}
+
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  description?: string;
+  context_length?: number | null;
+  pricing?: {
+    prompt?: string;
+    completion?: string;
+  };
+  supported_parameters?: string[];
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+  };
+}
+
+export interface OpenRouterCatalog {
+  data: OpenRouterModel[];
+}
+
+export interface SubscriptionStatus {
+  installed: boolean;
+  authenticated: boolean;
+  version?: string;
+  details?: string;
+}
+
 export interface Task {
   id: string;
   name: string;
