@@ -164,12 +164,6 @@ export async function handleRequest(
       models: listAllProviderModels(app.db),
     });
   }
-  if (path === "/api/providers" && method === "PUT") {
-    return json(
-      { error: "PUT /api/providers removed; use POST/PATCH/DELETE on DB-backed routes" },
-      { status: 410 },
-    );
-  }
   if (path === "/api/providers" && method === "POST") {
     const body = await readBody<{
       name?: string;
