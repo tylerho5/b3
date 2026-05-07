@@ -1,10 +1,9 @@
 import type { Harness, Provider, ProviderKind, ProviderModel } from "../types/shared";
 
-type RouteTier = "subscription" | "openrouter" | "per_token";
+type RouteTier = "subscription" | "per_token";
 
 function routeTier(kind: ProviderKind): RouteTier {
   if (kind === "claude_subscription" || kind === "codex_subscription") return "subscription";
-  if (kind === "openrouter") return "openrouter";
   return "per_token";
 }
 
@@ -23,7 +22,7 @@ export interface ResolveRouteInput {
   harness: Harness;
   providers: Provider[];
   providerModels: ProviderModel[];
-  pins: Record<string, string>;
+  pins: Record<string, Partial<Record<Harness, string>>>;
 }
 
 export function resolveRoute({
@@ -43,13 +42,13 @@ export function resolveRoute({
 
   if (eligible.length === 0) return null;
 
-  const pinnedId = pins[modelName];
+  const pinnedId = pins[modelName]?.[harness];
   if (pinnedId) {
     const pinned = eligible.find((p) => p.id === pinnedId);
     if (pinned) return pinned.id;
   }
 
-  const TIER_ORDER: RouteTier[] = ["subscription", "openrouter", "per_token"];
+  const TIER_ORDER: RouteTier[] = ["subscription", "per_token"];
   for (const tier of TIER_ORDER) {
     const candidates = eligible
       .filter((p) => routeTier(p.kind) === tier)
@@ -71,18 +70,7 @@ export function nativeHarnessesForModel(
   const harnesses = new Set<Harness>();
   for (const p of providers) {
     if (!modelProviderIds.has(p.id)) continue;
-    // Exclude openrouter cross-protocol from auto-check
-    if (p.kind === "openrouter") continue;
     for (const h of KIND_HARNESSES[p.kind]) harnesses.add(h);
-  }
-  // If only via openrouter, include its first harness
-  if (harnesses.size === 0) {
-    for (const p of providers) {
-      if (!modelProviderIds.has(p.id) || p.kind !== "openrouter") continue;
-      const supported = KIND_HARNESSES[p.kind];
-      if (supported.length > 0) harnesses.add(supported[0]);
-      break;
-    }
   }
   return Array.from(harnesses);
 }

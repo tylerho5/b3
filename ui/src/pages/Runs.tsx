@@ -15,6 +15,7 @@ import { SessionCard } from "../components/SessionCard";
 import { BroadcastBar } from "../components/BroadcastBar";
 import { MatrixGrid, type CellRunState } from "../components/MatrixGrid";
 import { AddModelsPopover } from "../components/AddModelsPopover";
+import { ProviderConfigPopover } from "../components/ProviderConfigPopover";
 import { SkillPicker } from "../components/SkillPicker/Picker";
 import { useEvents } from "../hooks/useEvents";
 import { useMatrixSelection, cellKey } from "../hooks/useMatrixSelection";
@@ -40,10 +41,11 @@ export function Runs() {
   } | null>(null);
   const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(new Set());
   const [addModelsOpen, setAddModelsOpen] = useState(false);
+  const [configureModelName, setConfigureModelName] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { models, cells, addModel, removeModel, toggleCell, swapRoute, removeAll } =
+  const { models, cells, addModel, removeModel, toggleCell, removeAll } =
     useMatrixSelection();
   const { recents, recordUse } = useRecents();
   const { pins, setPin } = useRoutePins();
@@ -112,7 +114,6 @@ export function Runs() {
         const cellState = cells[k];
         if (!cellState?.checked) continue;
         const routeId =
-          cellState.routeOverride ??
           resolveRoute({ modelName, harness, providers, providerModels, pins });
         if (!routeId) continue;
         result.push({ harness, providerId: routeId, modelId: modelName });
@@ -149,6 +150,7 @@ export function Runs() {
   };
 
   const addModelsAnchorRef = useRef<HTMLDivElement>(null);
+  const matrixBodyRef = useRef<HTMLDivElement>(null);
 
   const gridState = useMemo<Record<string, CellRunState>>(() => {
     const out: Record<string, CellRunState> = {};
@@ -162,27 +164,99 @@ export function Runs() {
       <div className="config-panel">
         {/* Task row */}
         <div className="config-task-row">
-          <label htmlFor="task-select">task</label>
-          <select
-            id="task-select"
-            value={taskId ?? ""}
-            onChange={(e) => setTaskId(e.target.value || null)}
-            disabled={isRunning}
-          >
-            <option value="">— select —</option>
-            {tasks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          <div className="config-task-left">
+            <label htmlFor="task-select" className="config-task-label">task</label>
+            <select
+              id="task-select"
+              value={taskId ?? ""}
+              onChange={(e) => setTaskId(e.target.value || null)}
+              disabled={isRunning}
+            >
+              <option value="">— select —</option>
+              {tasks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="config-task-actions">
+            {isRunning ? (
+              <button
+                type="button"
+                className="danger"
+                style={{ fontSize: 11 }}
+                onClick={() => {
+                  if (activeId) void api.cancel(activeId);
+                }}
+              >
+                ■ stop
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="primary"
+                  style={{ fontSize: 11 }}
+                  disabled={launching || !taskId || checkedCount === 0}
+                  onClick={handleLaunch}
+                >
+                  ▶ run {checkedCount} cell{checkedCount === 1 ? "" : "s"}
+                </button>
+                {checkedCount > 0 && (
+                  <button
+                    type="button"
+                    className="danger"
+                    style={{ fontSize: 11 }}
+                    onClick={removeAll}
+                  >
+                    × clear
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Matrix header */}
-        <div className="config-section-header">
-          <span className="config-section-label">matrix</span>
-          <div className="config-section-actions">
-            {!isRunning && (
+        {/* Matrix body */}
+        <div className="config-matrix-body" ref={matrixBodyRef}>
+          {isRunning ? (
+            <MatrixGrid
+              mode="live"
+              runs={activeCells}
+              state={gridState}
+            />
+          ) : (
+            <MatrixGrid
+              mode="configure"
+              models={models}
+              cells={cells}
+              onToggleCell={toggleCell}
+              onRemoveModel={removeModel}
+              onRemoveAll={removeAll}
+              onConfigureModel={setConfigureModelName}
+            />
+          )}
+
+          {configureModelName && (
+            <ProviderConfigPopover
+              modelName={configureModelName}
+              providers={providers}
+              providerModels={providerModels}
+              pins={pins}
+              onSelectRoute={(harness, routeId) => {
+                setPin(configureModelName, harness, routeId);
+              }}
+              onRemoveModel={() => {
+                removeModel(configureModelName);
+                setConfigureModelName(null);
+              }}
+              onClose={() => setConfigureModelName(null)}
+            />
+          )}
+
+          {!isRunning && (
+            <div className="add-models-row">
               <div className="add-models-anchor" ref={addModelsAnchorRef}>
                 <button
                   type="button"
@@ -205,54 +279,7 @@ export function Runs() {
                   />
                 )}
               </div>
-            )}
-            {isRunning ? (
-              <button
-                type="button"
-                className="danger"
-                style={{ fontSize: 11 }}
-                onClick={() => {
-                  if (activeId) void api.cancel(activeId);
-                }}
-              >
-                ■ stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="primary"
-                style={{ fontSize: 11 }}
-                disabled={launching || !taskId || checkedCount === 0}
-                onClick={handleLaunch}
-              >
-                ▶ run
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Matrix body */}
-        <div className="config-matrix-body">
-          {isRunning ? (
-            <MatrixGrid
-              mode="live"
-              runs={activeCells}
-              state={gridState}
-            />
-          ) : (
-            <MatrixGrid
-              mode="configure"
-              models={models}
-              cells={cells}
-              providers={providers}
-              providerModels={providerModels}
-              pins={pins}
-              onToggleCell={toggleCell}
-              onSwapRoute={swapRoute}
-              onPinRoute={setPin}
-              onRemoveModel={removeModel}
-              onRemoveAll={removeAll}
-            />
+            </div>
           )}
         </div>
 

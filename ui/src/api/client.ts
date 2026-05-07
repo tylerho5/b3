@@ -296,9 +296,9 @@ export const api = {
   async listRoutePins(): Promise<RoutePinsResponse> {
     return jsonOrThrow(await fetch("/api/route-pins"));
   },
-  async setRoutePin(modelName: string, routeId: string): Promise<void> {
+  async setRoutePin(modelName: string, harness: string, routeId: string): Promise<void> {
     const res = await fetch(
-      `/api/route-pins/${encodeURIComponent(modelName)}`,
+      `/api/route-pins/${encodeURIComponent(modelName)}/${encodeURIComponent(harness)}`,
       {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -307,9 +307,9 @@ export const api = {
     );
     if (!res.ok) throw new Error(res.statusText);
   },
-  async deleteRoutePin(modelName: string): Promise<void> {
+  async deleteRoutePin(modelName: string, harness: string): Promise<void> {
     const res = await fetch(
-      `/api/route-pins/${encodeURIComponent(modelName)}`,
+      `/api/route-pins/${encodeURIComponent(modelName)}/${encodeURIComponent(harness)}`,
       { method: "DELETE" },
     );
     if (!res.ok) throw new Error(res.statusText);

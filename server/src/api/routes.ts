@@ -516,18 +516,20 @@ export async function handleRequest(
     return json({ pins: listPins(app.db) });
   }
 
-  const routePin = path.match(/^\/api\/route-pins\/(.+)$/);
+  const routePin = path.match(/^\/api\/route-pins\/(.+)\/(.+)$/);
   if (routePin && method === "PUT") {
     const modelName = decodeURIComponent(routePin[1]);
+    const harness = decodeURIComponent(routePin[2]);
     const body = await readBody<{ routeId?: string }>(req);
     if (!body?.routeId) return badRequest("routeId required");
-    setPin(app.db, modelName, body.routeId);
+    setPin(app.db, modelName, harness, body.routeId);
     return json({ ok: true });
   }
 
   if (routePin && method === "DELETE") {
     const modelName = decodeURIComponent(routePin[1]);
-    deletePin(app.db, modelName);
+    const harness = decodeURIComponent(routePin[2]);
+    deletePin(app.db, modelName, harness);
     return json({ ok: true });
   }
 
