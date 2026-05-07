@@ -10,7 +10,7 @@ type Tab = "recent" | "browse";
 interface AddModelsPopoverProps {
   providers: Provider[];
   providerModels: ProviderModel[];
-  pins: Record<string, string>;
+  pins: Record<string, Partial<Record<Harness, string>>>;
   recents: string[];
   selectedModels: Set<string>;
   onAdd: (modelName: string, autoCheckHarnesses: Harness[]) => void;

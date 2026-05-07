@@ -261,5 +261,5 @@ export interface RecentModelsResponse {
 }
 
 export interface RoutePinsResponse {
-  pins: Record<string, string>;
+  pins: Record<string, Record<string, string>>;
 }

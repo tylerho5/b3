@@ -231,15 +231,38 @@
   border-bottom: 1px solid var(--border);
 }
 
-.config-task-row label {
+.config-task-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-task-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
 }
 
+.config-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .config-matrix-body {
   padding: 0;
+  position: relative;
+}
+
+.add-models-row {
+  padding: 4px 10px 8px;
+}
+
+.add-models-anchor {
+  position: relative;
+  display: inline-block;
 }
 
 .config-skills-strip {

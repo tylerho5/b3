@@ -3,7 +3,6 @@ import type { Harness } from "../types/shared";
 
 export interface CellState {
   checked: boolean;
-  routeOverride?: string;
 }
 
 export function cellKey(modelName: string, harness: Harness): string {
@@ -49,25 +48,14 @@ export function useMatrixSelection() {
     const k = cellKey(modelName, harness);
     setCells((prev) => ({
       ...prev,
-      [k]: { ...prev[k], checked: !(prev[k]?.checked ?? false) },
+      [k]: { checked: !(prev[k]?.checked ?? false) },
     }));
   }, []);
-
-  const swapRoute = useCallback(
-    (modelName: string, harness: Harness, routeId: string) => {
-      const k = cellKey(modelName, harness);
-      setCells((prev) => ({
-        ...prev,
-        [k]: { ...(prev[k] ?? { checked: true }), routeOverride: routeId },
-      }));
-    },
-    [],
-  );
 
   const removeAll = useCallback(() => {
     setModels([]);
     setCells({});
   }, []);
 
-  return { models, cells, addModel, removeModel, toggleCell, swapRoute, removeAll };
+  return { models, cells, addModel, removeModel, toggleCell, removeAll };
 }
