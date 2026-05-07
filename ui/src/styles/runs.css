@@ -199,14 +199,6 @@
   flex-direction: column;
 }
 
-.config-section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
 .config-section-label {
   font-size: 10px;
   font-weight: 600;
@@ -214,13 +206,6 @@
   letter-spacing: 0.5px;
   color: var(--text-muted);
   flex: none;
-}
-
-.config-section-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
 }
 
 .config-task-row {
@@ -258,6 +243,9 @@
 
 .add-models-row {
   padding: 4px 10px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .add-models-anchor {

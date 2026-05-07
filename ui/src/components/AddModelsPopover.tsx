@@ -111,7 +111,9 @@ export function AddModelsPopover({
 
   const recentFiltered = useMemo(() => {
     const q = search.toLowerCase();
-    return recents.filter((m) => !q || m.toLowerCase().includes(q));
+    return recents
+      .filter((m) => !q || m.toLowerCase().includes(q))
+      .sort((a, b) => a.localeCompare(b));
   }, [recents, search]);
 
   function ModelRow({ modelName }: { modelName: string }) {
@@ -123,7 +125,7 @@ export function AddModelsPopover({
         <input
           type="checkbox"
           checked={checked}
-          onChange={() => {}}
+          onChange={() => toggleModel(modelName)}
           onClick={(e) => e.stopPropagation()}
         />
         <span className="add-models-model-name" title={modelName}>

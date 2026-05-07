@@ -20,7 +20,6 @@ interface ConfigureProps {
   cells: Record<string, CellState>;
   onToggleCell: (model: string, harness: Harness) => void;
   onRemoveModel: (model: string) => void;
-  onRemoveAll: () => void;
   onConfigureModel?: (modelName: string) => void;
 }
 
@@ -47,29 +46,47 @@ function ConfigureGrid({
   cells,
   onToggleCell,
   onRemoveModel,
-  onRemoveAll,
   onConfigureModel,
 }: Omit<ConfigureProps, "mode">) {
   if (models.length === 0) {
     return (
-      <div className="mg-empty">
-        no models — click <strong>+ add models</strong> to begin
+      <div className="mg-wrap">
+        <div className="mg-rows">
+          <div className="mg-empty">
+            no models — click &nbsp;<strong>+ add models</strong>&nbsp; to begin
+          </div>
+        </div>
       </div>
     );
   }
 
+  const sorted = [...models].sort((a, b) => a.localeCompare(b));
+
   return (
     <div className="mg-wrap">
       <div className="mg-rows">
-        {models.map((modelName) => (
+        {sorted.map((modelName) => (
           <div key={modelName} className="mg-row">
-            <button
-              type="button"
-              className="mg-model-name"
-              onClick={() => onConfigureModel?.(modelName)}
-            >
-              {modelName.length > 28 ? modelName.slice(0, 28) + "…" : modelName}
-            </button>
+            <div className="mg-row-left">
+              <button
+                type="button"
+                className="mg-model-name"
+                onClick={() => onConfigureModel?.(modelName)}
+              >
+                <span className="mg-model-name-text">
+                  {modelName.length > 28 ? modelName.slice(0, 28) + "…" : modelName}
+                </span>
+                <span
+                  className="mg-row-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveModel(modelName);
+                  }}
+                >
+                  ×
+                </span>
+              </button>
+            </div>
             <div className="mg-cells">
               {ALL_HARNESSES.map((harness) => {
                 const key = cellKey(modelName, harness);
@@ -84,24 +101,10 @@ function ConfigureGrid({
                 );
               })}
             </div>
-            <button
-              type="button"
-              className="mg-row-remove"
-              title={`remove ${modelName}`}
-              onClick={() => onRemoveModel(modelName)}
-            >
-              ×
-            </button>
+            <div />
           </div>
         ))}
       </div>
-      {models.length > 0 && (
-        <div className="mg-footer">
-          <button type="button" className="danger" onClick={onRemoveAll}>
-            clear all models
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -126,7 +129,13 @@ function mapRunStatus(status: Run["status"]): CellRunState {
 
 function LiveGrid({ runs, state, onCellClick }: Omit<LiveProps, "mode">) {
   if (runs.length === 0) {
-    return <div className="mg-empty">no active runs</div>;
+    return (
+      <div className="mg-wrap">
+        <div className="mg-rows">
+          <div className="mg-empty">no active runs</div>
+        </div>
+      </div>
+    );
   }
 
   const models = Array.from(new Set(runs.map((r) => r.modelId)));
@@ -166,7 +175,7 @@ function LiveGrid({ runs, state, onCellClick }: Omit<LiveProps, "mode">) {
                 );
               })}
             </div>
-            <div className="mg-row-remove-slot" />
+            <div />
           </div>
         ))}
       </div>
