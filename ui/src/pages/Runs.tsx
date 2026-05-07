@@ -203,16 +203,6 @@ export function Runs() {
                 >
                   ▶ run {checkedCount} cell{checkedCount === 1 ? "" : "s"}
                 </button>
-                {checkedCount > 0 && (
-                  <button
-                    type="button"
-                    className="danger"
-                    style={{ fontSize: 11 }}
-                    onClick={removeAll}
-                  >
-                    × clear
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -233,7 +223,6 @@ export function Runs() {
               cells={cells}
               onToggleCell={toggleCell}
               onRemoveModel={removeModel}
-              onRemoveAll={removeAll}
               onConfigureModel={setConfigureModelName}
             />
           )}
@@ -279,6 +268,16 @@ export function Runs() {
                   />
                 )}
               </div>
+              {models.length > 0 && (
+                <button
+                  type="button"
+                  className="danger"
+                  style={{ fontSize: 11 }}
+                  onClick={removeAll}
+                >
+                  clear all models
+                </button>
+              )}
             </div>
           )}
         </div>
