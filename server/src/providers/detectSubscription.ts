@@ -9,13 +9,43 @@ export interface SubscriptionStatus {
   details?: string;
 }
 
+export type RunSpawn = (cmd: string[]) => {
+  exitCode: number | null;
+  stdout: Uint8Array;
+};
+
+function defaultRunSpawn(cmd: string[]): ReturnType<RunSpawn> {
+  return Bun.spawnSync(cmd);
+}
+
+function readClaudeKeychainMacOS(runSpawn: RunSpawn = defaultRunSpawn): boolean {
+  if (process.platform !== "darwin") return false;
+  try {
+    const r = runSpawn([
+      "security",
+      "find-generic-password",
+      "-s",
+      "Claude Code-credentials",
+      "-w",
+    ]);
+    if (r.exitCode !== 0) return false;
+    const out = new TextDecoder().decode(r.stdout).trim();
+    if (!out) return false;
+    JSON.parse(out);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function detectClaudeSubscription(
-  opts: { home?: string } = {},
+  opts: { home?: string; runSpawn?: RunSpawn } = {},
 ): SubscriptionStatus {
   const home = opts.home ?? homedir();
   const installed = probeBinary("claude");
   const credsPath = join(home, ".claude", ".credentials.json");
-  const authenticated = readCredsValid(credsPath);
+  const authenticated =
+    readCredsValid(credsPath) || readClaudeKeychainMacOS(opts.runSpawn);
   return {
     installed: installed.ok,
     authenticated,

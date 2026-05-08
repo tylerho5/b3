@@ -1,10 +1,11 @@
-import { test, expect, beforeEach } from "bun:test";
+import { test, expect, beforeEach, mock } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   detectClaudeSubscription,
   detectCodexSubscription,
+  type RunSpawn,
 } from "../src/providers/detectSubscription";
 
 let home: string;
@@ -12,9 +13,12 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "b3-detect-"));
 });
 
+// noKeychainSpawn isolates the creds-file path from the macOS keychain fallback
+const noKeychainSpawn: RunSpawn = () => ({ exitCode: 1, stdout: new Uint8Array() });
+
 test("claude: not authenticated when credentials file is absent", () => {
   mkdirSync(join(home, ".claude"), { recursive: true });
-  const r = detectClaudeSubscription({ home });
+  const r = detectClaudeSubscription({ home, runSpawn: noKeychainSpawn });
   expect(r.authenticated).toBe(false);
 });
 
@@ -24,21 +28,21 @@ test("claude: authenticated when credentials file present and valid JSON", () =>
     join(home, ".claude", ".credentials.json"),
     JSON.stringify({ token: "fake-oauth-token" }),
   );
-  const r = detectClaudeSubscription({ home });
+  const r = detectClaudeSubscription({ home, runSpawn: noKeychainSpawn });
   expect(r.authenticated).toBe(true);
 });
 
 test("claude: not authenticated when credentials file is empty", () => {
   mkdirSync(join(home, ".claude"), { recursive: true });
   writeFileSync(join(home, ".claude", ".credentials.json"), "");
-  const r = detectClaudeSubscription({ home });
+  const r = detectClaudeSubscription({ home, runSpawn: noKeychainSpawn });
   expect(r.authenticated).toBe(false);
 });
 
 test("claude: not authenticated when credentials file is invalid JSON", () => {
   mkdirSync(join(home, ".claude"), { recursive: true });
   writeFileSync(join(home, ".claude", ".credentials.json"), "{not json");
-  const r = detectClaudeSubscription({ home });
+  const r = detectClaudeSubscription({ home, runSpawn: noKeychainSpawn });
   expect(r.authenticated).toBe(false);
 });
 
@@ -56,4 +60,64 @@ test("codex: authenticated when ~/.codex/auth.json present and valid", () => {
   );
   const r = detectCodexSubscription({ home });
   expect(r.authenticated).toBe(true);
+});
+
+test("claude: authenticated via keychain when creds file absent on darwin", () => {
+  const fakeSpawn: RunSpawn = (_cmd: string[]) => ({
+    exitCode: 0,
+    stdout: new TextEncoder().encode(JSON.stringify({ token: "keychain-token" })),
+  });
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "darwin" });
+  try {
+    const r = detectClaudeSubscription({ home, runSpawn: fakeSpawn });
+    expect(r.authenticated).toBe(true);
+  } finally {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  }
+});
+
+test("claude: not authenticated via keychain when security binary fails", () => {
+  const fakeSpawn: RunSpawn = (_cmd: string[]) => ({
+    exitCode: 1,
+    stdout: new Uint8Array(),
+  });
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "darwin" });
+  try {
+    const r = detectClaudeSubscription({ home, runSpawn: fakeSpawn });
+    expect(r.authenticated).toBe(false);
+  } finally {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  }
+});
+
+test("claude: not authenticated via keychain when output is empty", () => {
+  const fakeSpawn: RunSpawn = (_cmd: string[]) => ({
+    exitCode: 0,
+    stdout: new TextEncoder().encode(""),
+  });
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "darwin" });
+  try {
+    const r = detectClaudeSubscription({ home, runSpawn: fakeSpawn });
+    expect(r.authenticated).toBe(false);
+  } finally {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  }
+});
+
+test("claude: not authenticated via keychain on non-darwin", () => {
+  const fakeSpawn: RunSpawn = (_cmd: string[]) => ({
+    exitCode: 0,
+    stdout: new TextEncoder().encode(JSON.stringify({ token: "x" })),
+  });
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "linux" });
+  try {
+    const r = detectClaudeSubscription({ home, runSpawn: fakeSpawn });
+    expect(r.authenticated).toBe(false);
+  } finally {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  }
 });
