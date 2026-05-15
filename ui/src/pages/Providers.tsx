@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Provider, ProviderModel } from "../types/shared";
-import { SubscriptionTile } from "../components/providers/SubscriptionTile";
-import { OpenRouterTile } from "../components/providers/OpenRouterTile";
-import { ApiProviderRow } from "../components/providers/ApiProviderRow";
+import type {
+  Provider,
+  ProviderKind,
+  ProviderModel,
+  SubscriptionStatus,
+} from "../types/shared";
+import { ProviderRow } from "../components/providers/ProviderRow";
 import { AddProviderModal } from "../components/providers/AddProviderModal";
 import "../styles/providers.css";
 
@@ -14,6 +17,8 @@ export function Providers() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
+  const [claudeStatus, setClaudeStatus] = useState<SubscriptionStatus | null>(null);
+  const [codexStatus, setCodexStatus] = useState<SubscriptionStatus | null>(null);
 
   const refresh = async () => {
     setError(null);
@@ -30,6 +35,8 @@ export function Providers() {
 
   useEffect(() => {
     void refresh();
+    void api.getSubscriptionStatus("claude_code").then(setClaudeStatus);
+    void api.getSubscriptionStatus("codex").then(setCodexStatus);
   }, []);
 
   const modelsByProvider = useMemo(() => {
@@ -42,19 +49,11 @@ export function Providers() {
     return m;
   }, [models]);
 
-  const claudeSub = providers.find((p) => p.kind === "claude_subscription") ?? null;
-  const codexSub = providers.find((p) => p.kind === "codex_subscription") ?? null;
-  const openrouter = providers.find((p) => p.kind === "openrouter") ?? null;
-  const openrouterModels = openrouter
-    ? modelsByProvider.get(openrouter.id) ?? []
-    : [];
-  const apiProviders = providers.filter(
-    (p) =>
-      p.kind === "anthropic_api_direct" ||
-      p.kind === "openai_api_direct" ||
-      p.kind === "custom_anthropic_compat" ||
-      p.kind === "custom_openai_compat",
-  );
+  const byKind = useMemo(() => {
+    const m = new Map<ProviderKind, Provider>();
+    for (const p of providers) m.set(p.kind, p);
+    return m;
+  }, [providers]);
 
   const openAdd = () => {
     setEditing(null);
@@ -68,7 +67,7 @@ export function Providers() {
     setModalOpen(false);
     setEditing(null);
   };
-  const onSaved = () => {
+  const onChanged = () => {
     void refresh();
   };
 
@@ -77,57 +76,79 @@ export function Providers() {
       {error && <div className="callout-error">{error}</div>}
       {loading && <div className="meta-line dim">loading…</div>}
 
-      <section className="providers-section">
-        <h2 className="providers-section-head">Subscriptions</h2>
-        <div className="tile-grid">
-          <SubscriptionTile
-            harness="claude_code"
-            existing={claudeSub}
-            onChanged={onSaved}
-          />
-          <SubscriptionTile
-            harness="codex"
-            existing={codexSub}
-            onChanged={onSaved}
-          />
-        </div>
-      </section>
+      <div className="providers-section-bar">
+        <h2 className="providers-section-head">Providers</h2>
+        <span className="spacer" />
+        <button type="button" className="primary" onClick={openAdd}>
+          + add provider
+        </button>
+      </div>
 
-      <section className="providers-section">
-        <h2 className="providers-section-head">OpenRouter</h2>
-        <OpenRouterTile
-          existing={openrouter}
-          models={openrouterModels}
-          onChanged={onSaved}
-        />
-      </section>
-
-      <section className="providers-section">
-        <div className="providers-section-bar">
-          <h2 className="providers-section-head">API providers</h2>
-          <span className="spacer" />
-          <button type="button" className="primary" onClick={openAdd}>
-            + add provider
-          </button>
-        </div>
-        {apiProviders.length === 0 ? (
-          <div className="providers-empty">
-            No API providers yet. Add one above to get started.
-          </div>
-        ) : (
-          <div className="api-list">
-            {apiProviders.map((p) => (
-              <ApiProviderRow
-                key={p.id}
-                provider={p}
-                modelCount={modelsByProvider.get(p.id)?.length ?? 0}
-                onEdit={() => openEdit(p)}
-                onDeleted={onSaved}
-              />
-            ))}
-          </div>
+      <div className="provider-list">
+        {/* Claude Code subscription (ghost row if not added) */}
+        {(!byKind.has("claude_subscription") || byKind.get("claude_subscription")) && (
+          <ProviderRow
+            provider={byKind.get("claude_subscription") ?? null}
+            kind="claude_subscription"
+            models={
+              byKind.get("claude_subscription")
+                ? modelsByProvider.get(byKind.get("claude_subscription")!.id) ?? []
+                : []
+            }
+            subscriptionStatus={claudeStatus}
+            onChanged={onChanged}
+          />
         )}
-      </section>
+
+        {/* Codex subscription (ghost row if not added) */}
+        {(!byKind.has("codex_subscription") || byKind.get("codex_subscription")) && (
+          <ProviderRow
+            provider={byKind.get("codex_subscription") ?? null}
+            kind="codex_subscription"
+            models={
+              byKind.get("codex_subscription")
+                ? modelsByProvider.get(byKind.get("codex_subscription")!.id) ?? []
+                : []
+            }
+            subscriptionStatus={codexStatus}
+            onChanged={onChanged}
+          />
+        )}
+
+        {/* OpenRouter */}
+        {(!byKind.has("openrouter") || byKind.get("openrouter")) && (
+          <ProviderRow
+            provider={byKind.get("openrouter") ?? null}
+            kind="openrouter"
+            models={
+              byKind.get("openrouter")
+                ? modelsByProvider.get(byKind.get("openrouter")!.id) ?? []
+                : []
+            }
+            onChanged={onChanged}
+          />
+        )}
+
+        {/* API providers */}
+        {providers
+          .filter(
+            (p) =>
+              p.kind === "anthropic_api_direct" ||
+              p.kind === "openai_api_direct" ||
+              p.kind === "custom_anthropic_compat" ||
+              p.kind === "custom_openai_compat",
+          )
+          .map((p) => (
+            <ProviderRow
+              key={p.id}
+              provider={p}
+              kind={p.kind}
+              models={modelsByProvider.get(p.id) ?? []}
+              onChanged={onChanged}
+              onEditProvider={() => openEdit(p)}
+            />
+          ))}
+      </div>
 
       {modalOpen && (
         <AddProviderModal
@@ -136,7 +157,7 @@ export function Providers() {
             editing ? modelsByProvider.get(editing.id) ?? [] : undefined
           }
           onClose={closeModal}
-          onSaved={onSaved}
+          onSaved={onChanged}
         />
       )}
     </div>

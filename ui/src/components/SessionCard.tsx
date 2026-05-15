@@ -23,15 +23,24 @@ export function SessionCard({
   const [now, setNow] = useState(Date.now());
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
+  const isTerminal =
+    run.status === "passed" ||
+    run.status === "failed" ||
+    run.status === "error" ||
+    run.status === "canceled";
+  const isInteractive = run.status === "running" || run.status === "testing";
 
   useEffect(() => {
+    if (isTerminal) return;
     const i = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(i);
-  }, []);
+  }, [isTerminal]);
 
-  const series = useDerivedSeries(events, now);
+  const completedAt = run.completedAt ? new Date(run.completedAt).getTime() : null;
+  const displayNow = isTerminal && completedAt != null ? completedAt : now;
+  const series = useDerivedSeries(events, displayNow);
   const startedAt = run.startedAt ? new Date(run.startedAt).getTime() : now;
-  const elapsedS = Math.floor((now - startedAt) / 1000);
+  const elapsedS = Math.max(0, Math.floor((displayNow - startedAt) / 1000));
   const harnessClass = run.harness === "codex" ? "codex" : "claude_code";
 
   const cls = [
@@ -45,7 +54,7 @@ export function SessionCard({
     .join(" ");
 
   const send = async () => {
-    if (!msg.trim()) return;
+    if (!isInteractive || !msg.trim()) return;
     setSending(true);
     try {
       await onSendMessage(msg);
@@ -103,6 +112,7 @@ export function SessionCard({
           value={msg}
           onChange={(e) => setMsg(e.target.value)}
           placeholder="message this session…"
+          disabled={!isInteractive}
           onKeyDown={(e) => {
             if (e.key === "Enter") void send();
           }}
@@ -111,7 +121,7 @@ export function SessionCard({
           type="button"
           className="secondary"
           onClick={send}
-          disabled={sending || !msg.trim()}
+          disabled={sending || !isInteractive || !msg.trim()}
         >
           send
         </button>

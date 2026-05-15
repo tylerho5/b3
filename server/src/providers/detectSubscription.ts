@@ -58,13 +58,8 @@ export function detectCodexSubscription(
 ): SubscriptionStatus {
   const home = opts.home ?? homedir();
   const installed = probeBinary("codex");
-  // The exact creds path for Codex is uncertain at design time; check known
-  // candidates. Update once verified on a real install.
-  const candidates = [
-    join(home, ".codex", "auth.json"),
-    join(home, ".codex", ".credentials.json"),
-  ];
-  const authenticated = candidates.some(readCredsValid);
+  const credsPath = join(home, ".codex", "auth.json");
+  const authenticated = readCredsValid(credsPath);
   return {
     installed: installed.ok,
     authenticated,

@@ -30,6 +30,7 @@ import {
   addProviderModels,
   listAllProviderModels,
   removeProviderModel,
+  updateProviderModel,
   type AddProviderModelInput,
 } from "../db/providerModels";
 import {
@@ -247,6 +248,15 @@ export async function handleRequest(
   const providerModelById = path.match(
     /^\/api\/providers\/([^/]+)\/models\/(.+)$/,
   );
+  if (providerModelById && method === "PUT") {
+    const [, id, encodedModelId] = providerModelById;
+    if (!getProvider(app.db, id)) return notFound();
+    const modelId = decodeURIComponent(encodedModelId);
+    const body = await readBody<Partial<AddProviderModelInput>>(req);
+    const updated = updateProviderModel(app.db, id, modelId, body);
+    if (!updated) return notFound();
+    return json(updated);
+  }
   if (providerModelById && method === "DELETE") {
     const [, id, encodedModelId] = providerModelById;
     if (!getProvider(app.db, id)) return notFound();

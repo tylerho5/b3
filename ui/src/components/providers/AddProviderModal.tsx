@@ -11,13 +11,15 @@ type AddableKind =
   | "anthropic_api_direct"
   | "openai_api_direct"
   | "custom_anthropic_compat"
-  | "custom_openai_compat";
+  | "custom_openai_compat"
+  | "openrouter";
 
 const KIND_LABEL: Record<AddableKind, string> = {
   anthropic_api_direct: "Anthropic (direct API)",
   openai_api_direct: "OpenAI (direct API)",
   custom_anthropic_compat: "Custom Anthropic-compatible",
   custom_openai_compat: "Custom OpenAI-compatible",
+  openrouter: "OpenRouter",
 };
 
 const KIND_HINT: Record<AddableKind, string> = {
@@ -25,6 +27,7 @@ const KIND_HINT: Record<AddableKind, string> = {
   openai_api_direct: "OPENAI_API_KEY",
   custom_anthropic_compat: "Self-hosted or third-party Messages API",
   custom_openai_compat: "Self-hosted or third-party Chat Completions API",
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 interface Form {
@@ -292,7 +295,8 @@ function isAddableKind(kind: ProviderKind): kind is AddableKind {
     kind === "anthropic_api_direct" ||
     kind === "openai_api_direct" ||
     kind === "custom_anthropic_compat" ||
-    kind === "custom_openai_compat"
+    kind === "custom_openai_compat" ||
+    kind === "openrouter"
   );
 }
 
@@ -306,5 +310,7 @@ function defaultName(kind: AddableKind): string {
       return "Custom Anthropic";
     case "custom_openai_compat":
       return "Custom OpenAI";
+    case "openrouter":
+      return "OpenRouter";
   }
 }

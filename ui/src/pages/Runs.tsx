@@ -81,19 +81,26 @@ export function Runs() {
       return;
     }
     let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
     const tick = async () => {
       try {
         const r = await api.getMatrixRun(activeId);
-        if (!cancelled) setActiveData(r);
+        if (cancelled) return;
+        setActiveData(r);
+        if (r.matrixRun.status !== "running" && interval) {
+          clearInterval(interval);
+          interval = null;
+          void refreshHistory();
+        }
       } catch {
         // ignore
       }
     };
     void tick();
-    const interval = setInterval(tick, 2000);
+    interval = setInterval(tick, 2000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [activeId]);
 
@@ -311,11 +318,13 @@ export function Runs() {
       {/* ── Active run area ─────────────────────────────── */}
       {activeId && activeCells.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <BroadcastBar
-            matrixRunId={activeId}
-            selectedCount={selectedRunIds.size}
-            onSent={() => {}}
-          />
+          {isRunning && (
+            <BroadcastBar
+              matrixRunId={activeId}
+              selectedCount={selectedRunIds.size}
+              onSent={() => {}}
+            />
+          )}
           <RunCards
             matrixRunId={activeId}
             cells={activeCells}

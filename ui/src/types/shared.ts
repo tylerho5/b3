@@ -32,6 +32,7 @@ export interface ProviderModel {
   outputCostPerMtok: number | null;
   tier: string | null;
   supportedParameters: string[] | null;
+  canonicalId: string | null;
   addedAt: string;
 }
 

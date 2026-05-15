@@ -133,6 +133,22 @@ export const api = {
     );
     if (!res.ok) throw new Error(res.statusText);
   },
+  async updateProviderModel(
+    providerId: string,
+    modelId: string,
+    patch: Partial<ProviderModelInput>,
+  ): Promise<ProviderModel> {
+    return jsonOrThrow(
+      await fetch(
+        `/api/providers/${providerId}/models/${encodeURIComponent(modelId)}`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(patch),
+        },
+      ),
+    );
+  },
   async probeProvider(id: string): Promise<ProviderProbeResult> {
     return jsonOrThrow(
       await fetch(`/api/providers/${id}/probe`, { method: "POST" }),
