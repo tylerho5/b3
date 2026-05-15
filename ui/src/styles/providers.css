@@ -337,8 +337,15 @@
 }
 .checklist-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
   padding-bottom: 4px;
+}
+.checklist-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: auto;
 }
 .checklist-custom-header {
   font-size: 10px;

@@ -26,6 +26,7 @@ export function SubscriptionModelChecklist({
 }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const curated = SUBSCRIPTION_MODELS[providerKind];
   const curatedIds = new Set(curated.map((m) => m.modelId));
@@ -66,24 +67,36 @@ export function SubscriptionModelChecklist({
     }
   };
 
+  const missingDefaults = curated.filter(
+    (m) =>
+      !m.excludeFromDefaults &&
+      !enabled.has(cellKey(m.modelId, RECOMMENDED_EFFORT)),
+  );
+
+  const showStatus = (msg: string) => {
+    setStatus(msg);
+    setTimeout(() => setStatus((cur) => (cur === msg ? null : cur)), 4000);
+  };
+
   const applyDefaults = async () => {
-    const toAdd = curated
-      .filter(
-        (m) =>
-          !m.excludeFromDefaults &&
-          !enabled.has(cellKey(m.modelId, RECOMMENDED_EFFORT)),
-      )
-      .map((m) => ({
-        modelId: m.modelId,
-        displayName: m.modelId,
-        effort: RECOMMENDED_EFFORT,
-      }));
-    if (toAdd.length === 0) return;
+    if (missingDefaults.length === 0) {
+      showStatus("All recommended defaults already applied.");
+      return;
+    }
+    const toAdd = missingDefaults.map((m) => ({
+      modelId: m.modelId,
+      displayName: m.modelId,
+      effort: RECOMMENDED_EFFORT,
+    }));
     setBusy("__defaults__");
     setError(null);
+    setStatus(null);
     try {
       await api.addProviderModels(providerId, toAdd);
       onChanged();
+      showStatus(
+        `Added ${toAdd.length} model(s) with ${RECOMMENDED_EFFORT} effort.`,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -94,14 +107,21 @@ export function SubscriptionModelChecklist({
   return (
     <div className="subscription-model-checklist">
       <div className="checklist-actions">
+        {status && <span className="checklist-status">{status}</span>}
         <button
           type="button"
           className="secondary"
           onClick={() => void applyDefaults()}
           disabled={busy !== null}
-          title={`Enables ${RECOMMENDED_EFFORT} effort for non-1m models`}
+          title={
+            missingDefaults.length === 0
+              ? "All recommended defaults already applied"
+              : `Enable ${RECOMMENDED_EFFORT} effort for ${missingDefaults.length} model(s)`
+          }
         >
-          apply recommended defaults
+          {busy === "__defaults__"
+            ? "applying…"
+            : "apply recommended defaults"}
         </button>
       </div>
       {curated.map(({ modelId }) => (
