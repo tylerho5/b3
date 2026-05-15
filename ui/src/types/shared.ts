@@ -31,6 +31,7 @@ export interface ProviderModel {
   inputCostPerMtok: number | null;
   outputCostPerMtok: number | null;
   tier: string | null;
+  effort: string;
   supportedParameters: string[] | null;
   canonicalId: string | null;
   addedAt: string;
@@ -43,6 +44,7 @@ export interface ProviderModelInput {
   inputCostPerMtok?: number | null;
   outputCostPerMtok?: number | null;
   tier?: string | null;
+  effort?: string;
   supportedParameters?: string[] | null;
 }
 

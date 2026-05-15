@@ -9,8 +9,7 @@ function formatPricing(
     return "subscription";
   }
   if (model.inputCostPerMtok != null && model.outputCostPerMtok != null) {
-    const avg = (model.inputCostPerMtok + model.outputCostPerMtok) / 2;
-    return `$${avg.toFixed(3)}`;
+    return `in $${model.inputCostPerMtok.toFixed(2)} · out $${model.outputCostPerMtok.toFixed(2)}`;
   }
   return "—";
 }
@@ -37,27 +36,27 @@ export function ProviderModelList({
       {models.map((m) => (
         <div key={m.id} className="provider-model-row">
           <span className="provider-model-id">{m.modelId}</span>
-          <span className="provider-model-name">{m.displayName}</span>
-          {m.tier && <span className="kind-badge">{m.tier}</span>}
-          {m.contextLength != null && (
-            <span className="provider-model-stat">
-              {m.contextLength.toLocaleString()} ctx
+          <div className="provider-model-row-right">
+            {m.contextLength != null && (
+              <span className="provider-model-stat">
+                {m.contextLength.toLocaleString()} ctx
+              </span>
+            )}
+            <span className="provider-model-pricing">
+              {formatPricing(m, providerKind)}
             </span>
-          )}
-          <span className="provider-model-pricing">
-            {formatPricing(m, providerKind)}
-          </span>
-          <button
-            type="button"
-            className="danger"
-            title={`Remove ${m.modelId}`}
-            onClick={() => {
-              if (!confirm(`Remove model ${m.modelId}?`)) return;
-              api.removeProviderModel(providerId, m.modelId).then(onChanged);
-            }}
-          >
-            ×
-          </button>
+            <button
+              type="button"
+              className="danger"
+              title={`Remove ${m.modelId}`}
+              onClick={() => {
+                if (!confirm(`Remove model ${m.modelId}?`)) return;
+                api.removeProviderModel(providerId, m.modelId).then(onChanged);
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
       ))}
     </div>

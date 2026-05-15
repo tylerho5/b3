@@ -8,6 +8,7 @@ import type {
 } from "../../types/shared";
 import { ProviderModelList } from "./ProviderModelList";
 import { AddModelInline } from "./AddModelInline";
+import { SubscriptionModelChecklist } from "./SubscriptionModelChecklist";
 
 const KIND_LABEL: Record<ProviderKind, string> = {
   claude_subscription: "Claude Code",
@@ -82,6 +83,13 @@ export function ProviderRow({
   const name = provider?.name ?? KIND_LABEL[kind];
   const pill = isSubscriptionKind(kind) ? pillFor(subscriptionStatus) : null;
 
+  const canExpand = !!provider;
+  const toggle = () => {
+    if (canExpand) setExpanded((v) => !v);
+  };
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   const addToProviders = async () => {
     setAdding(true);
     setError(null);
@@ -95,6 +103,12 @@ export function ProviderRow({
     }
   };
 
+  const refreshSubscription = () => {
+    void api
+      .getSubscriptionStatus(kind === "claude_subscription" ? "claude_code" : "codex")
+      .then(() => onChanged());
+  };
+
   const deleteProvider = async () => {
     if (!provider || !confirm(`Delete provider "${provider.name}"?`)) return;
     try {
@@ -105,12 +119,40 @@ export function ProviderRow({
     }
   };
 
+  const subNotInstalled =
+    isSubscriptionKind(kind) && subscriptionStatus && !subscriptionStatus.installed;
+  const subNotAuthed =
+    isSubscriptionKind(kind) &&
+    subscriptionStatus?.installed &&
+    !subscriptionStatus.authenticated;
+  const subReadyNotAdded =
+    isSubscriptionKind(kind) &&
+    subscriptionStatus?.installed &&
+    subscriptionStatus.authenticated &&
+    !provider;
+
   return (
     <div
       className={`provider-row ${kindBorderCls(kind)}`}
       data-kind={kind}
     >
-      <div className="provider-row-head">
+      <div
+        className={`provider-row-head${canExpand ? " is-toggle" : ""}`}
+        onClick={canExpand ? toggle : undefined}
+        role={canExpand ? "button" : undefined}
+        aria-expanded={canExpand ? expanded : undefined}
+        tabIndex={canExpand ? 0 : undefined}
+        onKeyDown={
+          canExpand
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggle();
+                }
+              }
+            : undefined
+        }
+      >
         <div className="provider-row-head-left">
           <span className="provider-row-name">{name}</span>
           <span className="kind-badge">{KIND_LABEL[kind]}</span>
@@ -121,42 +163,23 @@ export function ProviderRow({
             </span>
           )}
         </div>
-        <div className="provider-row-head-right">
-          {/* Subscription: not installed */}
-          {isSubscriptionKind(kind) && subscriptionStatus && !subscriptionStatus.installed && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                void api.getSubscriptionStatus(
-                  kind === "claude_subscription" ? "claude_code" : "codex",
-                ).then(() => onChanged());
-              }}
-            >
+        <div className="provider-row-head-right" onClick={stop}>
+          {subNotInstalled && (
+            <button type="button" className="secondary" onClick={refreshSubscription}>
               refresh
             </button>
           )}
 
-          {/* Subscription: installed but not authed */}
-          {isSubscriptionKind(kind) && subscriptionStatus?.installed && !subscriptionStatus.authenticated && (
+          {subNotAuthed && (
             <>
               <pre className="snippet">{HARNESS_LOGIN[kind]}</pre>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  void api.getSubscriptionStatus(
-                    kind === "claude_subscription" ? "claude_code" : "codex",
-                  ).then(() => onChanged());
-                }}
-              >
+              <button type="button" className="secondary" onClick={refreshSubscription}>
                 refresh
               </button>
             </>
           )}
 
-          {/* Subscription: ready, not yet added */}
-          {isSubscriptionKind(kind) && subscriptionStatus?.installed && subscriptionStatus.authenticated && !provider && (
+          {subReadyNotAdded && (
             <button
               type="button"
               className="primary"
@@ -167,49 +190,45 @@ export function ProviderRow({
             </button>
           )}
 
-          {/* Subscription or OpenRouter: added */}
-          {(provider && (isSubscriptionKind(kind) || kind === "openrouter")) && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? "collapse" : "expand"}
-            </button>
-          )}
-
-          {/* OpenRouter: added */}
           {provider && kind === "openrouter" && (
             <button type="button" className="secondary">
               browse catalog
             </button>
           )}
 
-          {/* API: edit + delete */}
           {provider && isApiKind(kind) && (
-            <>
-              <button
-                type="button"
-                className="secondary"
-                onClick={onEditProvider}
+            <button type="button" className="secondary" onClick={onEditProvider}>
+              edit
+            </button>
+          )}
+
+          {canExpand && (
+            <button
+              type="button"
+              className="row-chevron"
+              aria-label={expanded ? "collapse" : "expand"}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggle();
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transform: expanded ? "rotate(180deg)" : "none",
+                  transition: "transform 120ms ease",
+                }}
               >
-                edit
-              </button>
-              <button
-                type="button"
-                className="danger"
-                onClick={() => void deleteProvider()}
-              >
-                delete
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setExpanded((v) => !v)}
-              >
-                {expanded ? "collapse" : "expand"}
-              </button>
-            </>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
           )}
         </div>
       </div>
@@ -218,13 +237,22 @@ export function ProviderRow({
 
       {expanded && (
         <div className="provider-row-body">
-          <ProviderModelList
-            providerId={provider?.id ?? ""}
-            providerKind={kind}
-            models={models}
-            onChanged={onChanged}
-          />
-          {provider && !showAddModel && (
+          {provider && isSubscriptionKind(kind) ? (
+            <SubscriptionModelChecklist
+              providerId={provider.id}
+              providerKind={kind as "claude_subscription" | "codex_subscription"}
+              models={models}
+              onChanged={onChanged}
+            />
+          ) : (
+            <ProviderModelList
+              providerId={provider?.id ?? ""}
+              providerKind={kind}
+              models={models}
+              onChanged={onChanged}
+            />
+          )}
+          {provider && !isSubscriptionKind(kind) && !showAddModel && (
             <div className="provider-row-footer">
               <button
                 type="button"
@@ -235,7 +263,7 @@ export function ProviderRow({
               </button>
             </div>
           )}
-          {provider && showAddModel && (
+          {provider && !isSubscriptionKind(kind) && showAddModel && (
             <AddModelInline
               providerId={provider.id}
               providerKind={kind}
@@ -245,6 +273,17 @@ export function ProviderRow({
               }}
               onCancel={() => setShowAddModel(false)}
             />
+          )}
+          {provider && isApiKind(kind) && (
+            <div className="provider-row-danger">
+              <button
+                type="button"
+                className="danger"
+                onClick={() => void deleteProvider()}
+              >
+                delete provider
+              </button>
+            </div>
           )}
         </div>
       )}

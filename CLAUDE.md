@@ -55,7 +55,7 @@ cd server && bunx --bun tsc --noEmit -p .      # typecheck (run from server/, NO
 Integration test gotchas:
 - Real CLI calls cost real money (~$0.02/refine, $0.001/runOne). Re-running the suite is not free.
 - Tests rely on the user's existing `claude` and `codex` CLI auth (OAuth keychain). Setting `ANTHROPIC_*` env vars would auth as a different user.
-- The Codex test specifically uses `gpt-5.4` because ChatGPT Free account auth rejects `gpt-5`/`gpt-5.5`/`gpt-5-codex`.
+- The Codex test uses `gpt-5.4`.
 - `testRunner.test.ts` "two concurrent test phases serialize" measures wall-clock — flaky on heavily contended CI. Currently 1-flaky-rerun observed in 30+ runs.
 - `bun test` reuses the same process, and `testRunner` uses a module-level promise mutex. Tests that share that mutex can interact across files.
 

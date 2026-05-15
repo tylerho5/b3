@@ -261,7 +261,13 @@ export async function handleRequest(
     const [, id, encodedModelId] = providerModelById;
     if (!getProvider(app.db, id)) return notFound();
     const modelId = decodeURIComponent(encodedModelId);
-    removeProviderModel(app.db, id, modelId);
+    const effortParam = url.searchParams.get("effort");
+    removeProviderModel(
+      app.db,
+      id,
+      modelId,
+      effortParam !== null ? effortParam : undefined,
+    );
     return json({ ok: true });
   }
 

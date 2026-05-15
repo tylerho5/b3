@@ -11,6 +11,7 @@ export interface ProviderModel {
   inputCostPerMtok: number | null;
   outputCostPerMtok: number | null;
   tier: string | null;
+  effort: string;
   supportedParameters: string[] | null;
   canonicalId: string | null;
   addedAt: string;
@@ -23,6 +24,7 @@ export interface AddProviderModelInput {
   inputCostPerMtok?: number | null;
   outputCostPerMtok?: number | null;
   tier?: string | null;
+  effort?: string;
   supportedParameters?: string[] | null;
 }
 
@@ -35,6 +37,7 @@ interface ProviderModelRow {
   input_cost_per_mtok: number | null;
   output_cost_per_mtok: number | null;
   tier: string | null;
+  effort: string;
   supported_parameters: string | null;
   canonical_id: string | null;
   added_at: string;
@@ -50,6 +53,7 @@ function rowToProviderModel(r: ProviderModelRow): ProviderModel {
     inputCostPerMtok: r.input_cost_per_mtok,
     outputCostPerMtok: r.output_cost_per_mtok,
     tier: r.tier,
+    effort: r.effort ?? "",
     supportedParameters: r.supported_parameters
       ? (JSON.parse(r.supported_parameters) as string[])
       : null,
@@ -67,7 +71,8 @@ export function addProviderModels(
   const out: ProviderModel[] = [];
   const insert = db.transaction((items: AddProviderModelInput[]) => {
     for (const item of items) {
-      const existing = getProviderModel(db, providerId, item.modelId);
+      const effort = item.effort ?? "";
+      const existing = getProviderModel(db, providerId, item.modelId, effort);
       if (existing) {
         out.push(existing);
         continue;
@@ -77,9 +82,9 @@ export function addProviderModels(
       db.run(
         `INSERT INTO provider_models
           (id, provider_id, model_id, display_name, context_length,
-           input_cost_per_mtok, output_cost_per_mtok, tier,
+           input_cost_per_mtok, output_cost_per_mtok, tier, effort,
            supported_parameters, canonical_id, added_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           providerId,
@@ -89,6 +94,7 @@ export function addProviderModels(
           item.inputCostPerMtok ?? null,
           item.outputCostPerMtok ?? null,
           item.tier ?? null,
+          effort,
           item.supportedParameters
             ? JSON.stringify(item.supportedParameters)
             : null,
@@ -96,7 +102,7 @@ export function addProviderModels(
           now,
         ],
       );
-      out.push(getProviderModel(db, providerId, item.modelId)!);
+      out.push(getProviderModel(db, providerId, item.modelId, effort)!);
     }
   });
   insert(inputs);
@@ -107,10 +113,19 @@ export function getProviderModel(
   db: DB,
   providerId: string,
   modelId: string,
+  effort?: string,
 ): ProviderModel | null {
+  if (effort !== undefined) {
+    const row = db
+      .query(
+        "SELECT * FROM provider_models WHERE provider_id = ? AND model_id = ? AND effort = ?",
+      )
+      .get(providerId, modelId, effort) as ProviderModelRow | undefined;
+    return row ? rowToProviderModel(row) : null;
+  }
   const row = db
     .query(
-      "SELECT * FROM provider_models WHERE provider_id = ? AND model_id = ?",
+      "SELECT * FROM provider_models WHERE provider_id = ? AND model_id = ? ORDER BY added_at ASC LIMIT 1",
     )
     .get(providerId, modelId) as ProviderModelRow | undefined;
   return row ? rowToProviderModel(row) : null;
@@ -141,7 +156,15 @@ export function removeProviderModel(
   db: DB,
   providerId: string,
   modelId: string,
+  effort?: string,
 ): void {
+  if (effort !== undefined) {
+    db.run(
+      "DELETE FROM provider_models WHERE provider_id = ? AND model_id = ? AND effort = ?",
+      [providerId, modelId, effort],
+    );
+    return;
+  }
   db.run(
     "DELETE FROM provider_models WHERE provider_id = ? AND model_id = ?",
     [providerId, modelId],

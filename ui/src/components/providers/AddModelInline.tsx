@@ -9,14 +9,6 @@ interface Props {
   onCancel: () => void;
 }
 
-function showTier(kind: ProviderKind): boolean {
-  return (
-    kind === "claude_subscription" ||
-    kind === "anthropic_api_direct" ||
-    kind === "custom_anthropic_compat"
-  );
-}
-
 function showContextLength(kind: ProviderKind): boolean {
   return (
     kind === "anthropic_api_direct" ||
@@ -41,8 +33,6 @@ function pricingRequired(kind: ProviderKind): boolean {
 
 export function AddModelInline({ providerId, providerKind, onAdded, onCancel }: Props) {
   const [modelId, setModelId] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [tier, setTier] = useState("");
   const [contextLength, setContextLength] = useState("");
   const [inputCost, setInputCost] = useState("");
   const [outputCost, setOutputCost] = useState("");
@@ -51,7 +41,6 @@ export function AddModelInline({ providerId, providerKind, onAdded, onCancel }: 
 
   const valid =
     modelId.trim() !== "" &&
-    displayName.trim() !== "" &&
     (!showPricing(providerKind) ||
       (!pricingRequired(providerKind) || (inputCost.trim() && outputCost.trim()))) &&
     (!showContextLength(providerKind) || !contextLength.trim() || !isNaN(Number(contextLength))) &&
@@ -62,11 +51,11 @@ export function AddModelInline({ providerId, providerKind, onAdded, onCancel }: 
     setSaving(true);
     setError(null);
     try {
+      const id = modelId.trim();
       await api.addProviderModels(providerId, [
         {
-          modelId: modelId.trim(),
-          displayName: displayName.trim(),
-          tier: showTier(providerKind) && tier ? tier : undefined,
+          modelId: id,
+          displayName: id,
           contextLength: showContextLength(providerKind) && contextLength.trim()
             ? Number(contextLength)
             : undefined,
@@ -98,31 +87,6 @@ export function AddModelInline({ providerId, providerKind, onAdded, onCancel }: 
           disabled={saving}
         />
       </div>
-      <div className="form-row">
-        <span className="form-label">Display name</span>
-        <input
-          type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="Claude Opus 4.7"
-          disabled={saving}
-        />
-      </div>
-      {showTier(providerKind) && (
-        <div className="form-row">
-          <span className="form-label">Tier</span>
-          <select
-            value={tier}
-            onChange={(e) => setTier(e.target.value)}
-            disabled={saving}
-          >
-            <option value="">—</option>
-            <option value="opus">opus</option>
-            <option value="sonnet">sonnet</option>
-            <option value="haiku">haiku</option>
-          </select>
-        </div>
-      )}
       {showContextLength(providerKind) && (
         <div className="form-row">
           <span className="form-label">Context length</span>
