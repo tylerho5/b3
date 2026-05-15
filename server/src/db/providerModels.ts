@@ -1,5 +1,6 @@
 import { ulid } from "ulid";
 import type { DB } from "./index";
+import { resolveCanonicalId } from "../providers/canonicalModel";
 
 export interface ProviderModel {
   id: string;
@@ -11,6 +12,7 @@ export interface ProviderModel {
   outputCostPerMtok: number | null;
   tier: string | null;
   supportedParameters: string[] | null;
+  canonicalId: string | null;
   addedAt: string;
 }
 
@@ -34,6 +36,7 @@ interface ProviderModelRow {
   output_cost_per_mtok: number | null;
   tier: string | null;
   supported_parameters: string | null;
+  canonical_id: string | null;
   added_at: string;
 }
 
@@ -50,6 +53,7 @@ function rowToProviderModel(r: ProviderModelRow): ProviderModel {
     supportedParameters: r.supported_parameters
       ? (JSON.parse(r.supported_parameters) as string[])
       : null,
+    canonicalId: r.canonical_id,
     addedAt: r.added_at,
   };
 }
@@ -69,12 +73,13 @@ export function addProviderModels(
         continue;
       }
       const id = ulid();
+      const canonicalId = resolveCanonicalId(db, item.modelId);
       db.run(
         `INSERT INTO provider_models
           (id, provider_id, model_id, display_name, context_length,
            input_cost_per_mtok, output_cost_per_mtok, tier,
-           supported_parameters, added_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           supported_parameters, canonical_id, added_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           providerId,
@@ -87,6 +92,7 @@ export function addProviderModels(
           item.supportedParameters
             ? JSON.stringify(item.supportedParameters)
             : null,
+          canonicalId,
           now,
         ],
       );
@@ -140,4 +146,82 @@ export function removeProviderModel(
     "DELETE FROM provider_models WHERE provider_id = ? AND model_id = ?",
     [providerId, modelId],
   );
+}
+
+export interface UpdateProviderModelInput {
+  displayName?: string;
+  tier?: string | null;
+  contextLength?: number | null;
+  inputCostPerMtok?: number | null;
+  outputCostPerMtok?: number | null;
+  supportedParameters?: string[] | null;
+}
+
+export function updateProviderModel(
+  db: DB,
+  providerId: string,
+  modelId: string,
+  patch: UpdateProviderModelInput,
+): ProviderModel | null {
+  const sets: string[] = [];
+  const vals: (string | number | null)[] = [];
+
+  if (patch.displayName !== undefined) {
+    sets.push("display_name = ?");
+    vals.push(patch.displayName);
+  }
+  if (patch.tier !== undefined) {
+    sets.push("tier = ?");
+    vals.push(patch.tier);
+  }
+  if (patch.contextLength !== undefined) {
+    sets.push("context_length = ?");
+    vals.push(patch.contextLength);
+  }
+  if (patch.inputCostPerMtok !== undefined) {
+    sets.push("input_cost_per_mtok = ?");
+    vals.push(patch.inputCostPerMtok);
+  }
+  if (patch.outputCostPerMtok !== undefined) {
+    sets.push("output_cost_per_mtok = ?");
+    vals.push(patch.outputCostPerMtok);
+  }
+  if (patch.supportedParameters !== undefined) {
+    sets.push("supported_parameters = ?");
+    vals.push(
+      patch.supportedParameters
+        ? JSON.stringify(patch.supportedParameters)
+        : null,
+    );
+  }
+
+  if (sets.length === 0) return getProviderModel(db, providerId, modelId);
+
+  vals.push(providerId, modelId);
+  const r = db.run(
+    `UPDATE provider_models SET ${sets.join(", ")} WHERE provider_id = ? AND model_id = ?`,
+    vals,
+  );
+  if (r.changes === 0) return null;
+  return getProviderModel(db, providerId, modelId);
+}
+
+export function backfillCanonicalIds(db: DB): number {
+  const rows = db
+    .query(
+      "SELECT id, model_id FROM provider_models WHERE canonical_id IS NULL",
+    )
+    .all() as { id: string; model_id: string }[];
+  let count = 0;
+  for (const row of rows) {
+    const cid = resolveCanonicalId(db, row.model_id);
+    if (cid) {
+      db.run("UPDATE provider_models SET canonical_id = ? WHERE id = ?", [
+        cid,
+        row.id,
+      ]);
+      count++;
+    }
+  }
+  return count;
 }

@@ -19,11 +19,11 @@ export interface OpenRouterCatalog {
 }
 
 export async function fetchOpenRouterCatalog(
-  apiKey: string,
+  apiKey?: string | null,
 ): Promise<OpenRouterCatalog> {
-  const r = await fetch("https://openrouter.ai/api/v1/models", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  const headers: Record<string, string> = {};
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const r = await fetch("https://openrouter.ai/api/v1/models", { headers });
   if (!r.ok) {
     throw new Error(
       `OpenRouter catalog fetch failed: ${r.status} ${r.statusText}`,

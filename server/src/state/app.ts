@@ -9,6 +9,7 @@ import type { MatrixHandle } from "../orchestrator/runMatrix";
 import type { BroadcastQueue } from "../orchestrator/broadcast";
 import type { SkillBundle } from "../skills/registry";
 import { discoverSkills } from "../skills/registry";
+import { kickoffBackgroundRefresh } from "../providers/openrouterCatalogCache";
 
 export interface ActiveMatrix {
   matrixRunId: string;
@@ -45,6 +46,11 @@ export function createAppState(opts?: {
 
   const db = openDb(dbPath);
   runMigrations(db);
+
+  // Kick off background catalog refresh in production (not when opts override dbPath for tests)
+  if (!opts?.dbPath) {
+    kickoffBackgroundRefresh(db);
+  }
 
   const state: AppState = {
     db,

@@ -93,3 +93,52 @@ test("provider_models cascades on provider delete", () => {
     .get() as { c: number };
   expect(remaining.c).toBe(0);
 });
+
+test("migration 0006 creates openrouter_catalog table and canonical_id column", () => {
+  const db = openDb(":memory:");
+  runMigrations(db);
+
+  const tables = (
+    db
+      .query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[]
+  ).map((r) => r.name);
+  expect(tables).toContain("openrouter_catalog");
+
+  const catCols = (
+    db.query("PRAGMA table_info(openrouter_catalog)").all() as { name: string }[]
+  ).map((r) => r.name);
+  expect(catCols).toEqual(
+    expect.arrayContaining([
+      "id",
+      "name",
+      "vendor",
+      "context_length",
+      "pricing_prompt",
+      "pricing_completion",
+      "supported_parameters",
+      "description",
+      "fetched_at",
+    ]),
+  );
+
+  const pmCols = (
+    db.query("PRAGMA table_info(provider_models)").all() as { name: string }[]
+  ).map((r) => r.name);
+  expect(pmCols).toContain("canonical_id");
+
+  // INSERT OR REPLACE produces one row for duplicate id
+  db.run(
+    "INSERT OR REPLACE INTO openrouter_catalog (id, name, vendor, fetched_at) VALUES (?, ?, ?, ?)",
+    ["moonshotai/kimi-k2.6", "Kimi K2.6", "moonshotai", 1],
+  );
+  db.run(
+    "INSERT OR REPLACE INTO openrouter_catalog (id, name, vendor, fetched_at) VALUES (?, ?, ?, ?)",
+    ["moonshotai/kimi-k2.6", "Kimi K2.6 Updated", "moonshotai", 2],
+  );
+  const rows = db
+    .query("SELECT * FROM openrouter_catalog WHERE id = ?")
+    .all("moonshotai/kimi-k2.6") as { name: string }[];
+  expect(rows.length).toBe(1);
+  expect(rows[0].name).toBe("Kimi K2.6 Updated");
+});
