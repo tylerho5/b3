@@ -3,9 +3,15 @@ import type { Harness, Provider, ProviderModel } from "../types/shared";
 import { inferFamily } from "../lib/inferFamily";
 import { resolveRoute, nativeHarnessesForModel } from "../lib/resolveRoute";
 import { routeLabel } from "../lib/routeLabel";
+import { encodeModelKey, parseModelKey } from "../lib/modelKey";
 import "../styles/add-models-popover.css";
 
 type Tab = "recent" | "browse";
+
+interface ModelGroup {
+  modelId: string;
+  efforts: string[]; // empty = no effort variants (API model)
+}
 
 interface AddModelsPopoverProps {
   providers: Provider[];
@@ -31,6 +37,7 @@ export function AddModelsPopover({
   const [tab, setTab] = useState<Tab>("recent");
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsedModels, setCollapsedModels] = useState<Set<string>>(new Set());
   const popRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,35 +57,31 @@ export function AddModelsPopover({
     };
   }, [onClose]);
 
-  // All unique model names across all providers
-  const allModels = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const m of providerModels) {
-      if (!seen.has(m.modelId)) {
-        seen.add(m.modelId);
-        out.push(m.modelId);
-      }
-    }
-    return out;
-  }, [providerModels]);
-
   const providerById = useMemo(
     () => new Map(providers.map((p) => [p.id, p])),
     [providers],
   );
 
-  function routeCountForModel(modelName: string): number {
-    const providerIds = new Set(
-      providerModels.filter((m) => m.modelId === modelName).map((m) => m.providerId),
-    );
-    return providerIds.size;
-  }
+  // One entry per modelId, with list of effort variants (empty for API models)
+  const allModelGroups = useMemo(() => {
+    const effortsByModel = new Map<string, Set<string>>();
+    const modelOrder: string[] = [];
+    for (const m of providerModels) {
+      if (!effortsByModel.has(m.modelId)) {
+        effortsByModel.set(m.modelId, new Set());
+        modelOrder.push(m.modelId);
+      }
+      if (m.effort !== "") effortsByModel.get(m.modelId)!.add(m.effort);
+    }
+    return modelOrder.map((modelId) => ({
+      modelId,
+      efforts: Array.from(effortsByModel.get(modelId)!),
+    }));
+  }, [providerModels]);
 
-  function defaultRouteLabel(modelName: string): string {
-    // Try claude_code harness first, then codex
+  function defaultRouteLabel(modelId: string): string {
     for (const harness of ["claude_code", "codex"] as Harness[]) {
-      const id = resolveRoute({ modelName, harness, providers, providerModels, pins });
+      const id = resolveRoute({ modelName: modelId, harness, providers, providerModels, pins });
       if (id) {
         const p = providerById.get(id);
         return p ? routeLabel(p) : id;
@@ -87,65 +90,160 @@ export function AddModelsPopover({
     return "—";
   }
 
-  function toggleModel(modelName: string) {
-    if (selectedModels.has(modelName)) {
-      onRemove(modelName);
+  function toggleModel(modelKey: string) {
+    if (selectedModels.has(modelKey)) {
+      onRemove(modelKey);
     } else {
-      const harnesses = nativeHarnessesForModel(modelName, providers, providerModels);
-      onAdd(modelName, harnesses);
+      const harnesses = nativeHarnessesForModel(modelKey, providers, providerModels);
+      onAdd(modelKey, harnesses);
     }
   }
 
-  // Browse: group by family, filter by search
+  function toggleGroup(group: ModelGroup) {
+    const keys = group.efforts.map((e) => encodeModelKey(group.modelId, e));
+    const allSelected = keys.every((k) => selectedModels.has(k));
+    if (allSelected) {
+      keys.forEach((k) => onRemove(k));
+    } else {
+      keys.filter((k) => !selectedModels.has(k)).forEach((k) => {
+        const harnesses = nativeHarnessesForModel(k, providers, providerModels);
+        onAdd(k, harnesses);
+      });
+    }
+  }
+
+  function toggleExpanded(modelId: string) {
+    setCollapsedModels((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) next.delete(modelId);
+      else next.add(modelId);
+      return next;
+    });
+  }
+
+  // Browse: group ModelGroups by family, filter by search
   const browseGroups = useMemo(() => {
     const q = search.toLowerCase();
-    const filtered = allModels.filter((m) => !q || m.toLowerCase().includes(q));
-    const groups = new Map<string, string[]>();
-    for (const m of filtered) {
-      const fam = inferFamily(m);
+    const filtered = allModelGroups.filter((g) => !q || g.modelId.toLowerCase().includes(q));
+    const groups = new Map<string, ModelGroup[]>();
+    for (const g of filtered) {
+      const fam = inferFamily(g.modelId);
       if (!groups.has(fam)) groups.set(fam, []);
-      groups.get(fam)!.push(m);
+      groups.get(fam)!.push(g);
     }
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [allModels, search]);
+  }, [allModelGroups, search]);
 
-  const recentFiltered = useMemo(() => {
+  // Recent: group by modelId (recents are stored as model keys like "claude-opus-4-7::high")
+  const recentGroups = useMemo(() => {
     const q = search.toLowerCase();
-    return recents
-      .filter((m) => !q || m.toLowerCase().includes(q))
-      .sort((a, b) => a.localeCompare(b));
+    const effortsByModel = new Map<string, string[]>();
+    const modelOrder: string[] = [];
+    for (const key of recents) {
+      const { modelId, effort } = parseModelKey(key);
+      if (q && !modelId.toLowerCase().includes(q)) continue;
+      if (!effortsByModel.has(modelId)) {
+        effortsByModel.set(modelId, []);
+        modelOrder.push(modelId);
+      }
+      if (effort) effortsByModel.get(modelId)!.push(effort);
+    }
+    return modelOrder
+      .map((modelId) => ({ modelId, efforts: effortsByModel.get(modelId)! }))
+      .sort((a, b) => a.modelId.localeCompare(b.modelId));
   }, [recents, search]);
 
-  function ModelRow({ modelName }: { modelName: string }) {
-    const checked = selectedModels.has(modelName);
-    const label = defaultRouteLabel(modelName);
-    const count = routeCountForModel(modelName);
-    return (
-      <label className="add-models-model-row" onClick={() => toggleModel(modelName)}>
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={() => toggleModel(modelName)}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <span className="add-models-model-name" title={modelName}>
-          {modelName}
-        </span>
-        <span className="add-models-route-info">
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-secondary)",
-            }}
-          >
-            {label}
+  function GroupRow({ group }: { group: ModelGroup }) {
+    const label = defaultRouteLabel(group.modelId);
+
+    if (group.efforts.length === 0) {
+      const checked = selectedModels.has(group.modelId);
+      return (
+        <label className="add-models-model-row" onClick={() => toggleModel(group.modelId)}>
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => toggleModel(group.modelId)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span className="add-models-model-name" title={group.modelId}>
+            {group.modelId}
           </span>
-          {count > 1 && (
-            <span className="add-models-route-count">({count} routes)</span>
-          )}
-        </span>
-      </label>
+          <span className="add-models-route-label">{label}</span>
+        </label>
+      );
+    }
+
+    // Single effort — show inline as "modelId · effort", no expand needed
+    if (group.efforts.length === 1) {
+      const key = encodeModelKey(group.modelId, group.efforts[0]);
+      const checked = selectedModels.has(key);
+      return (
+        <label className="add-models-model-row" onClick={() => toggleModel(key)}>
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => toggleModel(key)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span className="add-models-model-name" title={key}>
+            {group.modelId} · {group.efforts[0]}
+          </span>
+          <span className="add-models-route-label">{label}</span>
+        </label>
+      );
+    }
+
+    const keys = group.efforts.map((e) => encodeModelKey(group.modelId, e));
+    const selectedCount = keys.filter((k) => selectedModels.has(k)).length;
+    const allSelected = selectedCount === keys.length;
+    const someSelected = selectedCount > 0 && !allSelected;
+    const isExpanded = !collapsedModels.has(group.modelId);
+
+    return (
+      <div>
+        <div className="add-models-model-row">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            ref={(el) => { if (el) el.indeterminate = someSelected; }}
+            onChange={() => toggleGroup(group)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            className="add-models-expand-btn"
+            onClick={() => toggleExpanded(group.modelId)}
+            aria-label={isExpanded ? "collapse" : "expand"}
+          >
+            {isExpanded ? "▼" : "▶"}
+          </button>
+          <span className="add-models-model-name" title={group.modelId}>
+            {group.modelId}
+          </span>
+          <span className="add-models-route-label">{label}</span>
+        </div>
+        {isExpanded &&
+          group.efforts.map((effort) => {
+            const key = encodeModelKey(group.modelId, effort);
+            const checked = selectedModels.has(key);
+            return (
+              <label
+                key={effort}
+                className="add-models-model-row add-models-effort-row"
+                onClick={() => toggleModel(key)}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleModel(key)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="add-models-effort-label">{effort}</span>
+              </label>
+            );
+          })}
+      </div>
     );
   }
 
@@ -179,10 +277,10 @@ export function AddModelsPopover({
       <div className="add-models-body">
         {tab === "recent" && (
           <>
-            {recentFiltered.length === 0 ? (
+            {recentGroups.length === 0 ? (
               <div className="add-models-empty">no recent models</div>
             ) : (
-              recentFiltered.map((m) => <ModelRow key={m} modelName={m} />)
+              recentGroups.map((g) => <GroupRow key={g.modelId} group={g} />)
             )}
           </>
         )}
@@ -192,7 +290,7 @@ export function AddModelsPopover({
             {browseGroups.length === 0 ? (
               <div className="add-models-empty">no models found</div>
             ) : (
-              browseGroups.map(([family, models]) => {
+              browseGroups.map(([family, groups]) => {
                 const isCollapsed = collapsed.has(family);
                 return (
                   <div key={family}>
@@ -210,8 +308,7 @@ export function AddModelsPopover({
                       <span>{isCollapsed ? "▶" : "▾"}</span>
                       <span>{family}</span>
                     </div>
-                    {!isCollapsed &&
-                      models.map((m) => <ModelRow key={m} modelName={m} />)}
+                    {!isCollapsed && groups.map((g) => <GroupRow key={g.modelId} group={g} />)}
                   </div>
                 );
               })

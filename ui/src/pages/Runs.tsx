@@ -22,6 +22,7 @@ import { useMatrixSelection, cellKey } from "../hooks/useMatrixSelection";
 import { useRecents } from "../hooks/useRecents";
 import { useRoutePins } from "../hooks/useRoutePins";
 import { resolveRoute } from "../lib/resolveRoute";
+import { parseModelKey } from "../lib/modelKey";
 import "../styles/runs.css";
 import "../styles/skill-picker.css";
 
@@ -113,17 +114,24 @@ export function Runs() {
   );
 
   const launchMatrix = useMemo(() => {
-    const result: Array<{ harness: Harness; providerId: string; modelId: string }> = [];
+    const result: Array<{ harness: Harness; providerId: string; modelId: string; effort?: string }> = [];
     const harnesses: Harness[] = ["claude_code", "codex"];
-    for (const modelName of models) {
+    for (const modelKey of models) {
+      const { modelId, effort } = parseModelKey(modelKey);
       for (const harness of harnesses) {
-        const k = cellKey(modelName, harness);
+        const k = cellKey(modelKey, harness);
         const cellState = cells[k];
         if (!cellState?.checked) continue;
-        const routeId =
-          resolveRoute({ modelName, harness, providers, providerModels, pins });
+        const routeId = resolveRoute({
+          modelName: modelId,
+          effort: effort || undefined,
+          harness,
+          providers,
+          providerModels,
+          pins,
+        });
         if (!routeId) continue;
-        result.push({ harness, providerId: routeId, modelId: modelName });
+        result.push({ harness, providerId: routeId, modelId, effort: effort || undefined });
       }
     }
     return result;

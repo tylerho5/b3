@@ -348,6 +348,7 @@ export async function handleRequest(
         harness: "claude_code" | "codex";
         providerId: string;
         modelId: string;
+        effort?: string;
       }>;
       skillIds?: string[];
       concurrency?: number;

@@ -207,7 +207,7 @@ export const api = {
   },
   async launch(input: {
     taskId: string;
-    matrix: Array<{ harness: string; providerId: string; modelId: string }>;
+    matrix: Array<{ harness: string; providerId: string; modelId: string; effort?: string }>;
     skillIds?: string[];
     concurrency?: number;
   }): Promise<{ matrixRunId: string; cellRunIds: string[] }> {

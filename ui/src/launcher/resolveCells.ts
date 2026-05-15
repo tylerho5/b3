@@ -33,6 +33,7 @@ export interface MatrixCell {
   harness: Harness;
   providerId: string;
   modelId: string;
+  effort: string;
   warning?: string;
 }
 
@@ -47,16 +48,18 @@ export interface ResolveCellsInput {
 export function modelSelectionKey(
   providerId: string,
   modelId: string,
+  effort: string = "",
 ): string {
-  return `${providerId}::${modelId}`;
+  return `${providerId}::${modelId}::${effort}`;
 }
 
 export function cellId(
   harness: Harness,
   providerId: string,
   modelId: string,
+  effort: string = "",
 ): string {
-  return `${harness}::${providerId}::${modelId}`;
+  return `${harness}::${providerId}::${modelId}::${effort}`;
 }
 
 export function resolveCells({
@@ -71,7 +74,7 @@ export function resolveCells({
 
   for (const m of providerModels) {
     if (!providerSel.has(m.providerId)) continue;
-    if (!modelSel.has(modelSelectionKey(m.providerId, m.modelId))) continue;
+    if (!modelSel.has(modelSelectionKey(m.providerId, m.modelId, m.effort))) continue;
 
     const provider = providerById.get(m.providerId);
     if (!provider) continue;
@@ -80,10 +83,11 @@ export function resolveCells({
     for (const harness of supported) {
       if (!harnessSel.has(harness)) continue;
       cells.push({
-        id: cellId(harness, m.providerId, m.modelId),
+        id: cellId(harness, m.providerId, m.modelId, m.effort),
         harness,
         providerId: m.providerId,
         modelId: m.modelId,
+        effort: m.effort,
         warning: cellWarning(provider, harness, m),
       });
     }
