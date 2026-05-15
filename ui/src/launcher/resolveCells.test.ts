@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { resolveCells } from "./resolveCells";
+import { resolveCells, modelSelectionKey } from "./resolveCells";
 import type { Harness, Provider, ProviderModel } from "../types/shared";
 
 const ts = "2026-04-25T00:00:00Z";
@@ -62,7 +62,9 @@ function model(
     inputCostPerMtok: null,
     outputCostPerMtok: null,
     tier: null,
+    effort: "",
     supportedParameters: null,
+    canonicalId: null,
     addedAt: ts,
     ...overrides,
   };
@@ -73,25 +75,22 @@ const orAnthSonnet = model("p-or", "anthropic/claude-sonnet-4.6");
 const orOaiGpt = model("p-or", "openai/gpt-5.5");
 const gpt5 = model("p-oai", "gpt-5.5");
 
-function key(providerId: string, modelId: string) {
-  return `${providerId}::${modelId}`;
-}
-
 test("emits one cell per (harness, provider, model) for compatible kinds", () => {
   const cells = resolveCells({
     harnessSel: new Set<Harness>(["claude_code"]),
     providers: [anthropicDirect],
     providerModels: [claudeSonnet],
     providerSel: new Set([anthropicDirect.id]),
-    modelSel: new Set([key(anthropicDirect.id, claudeSonnet.modelId)]),
+    modelSel: new Set([modelSelectionKey(anthropicDirect.id, claudeSonnet.modelId)]),
   });
   expect(cells).toHaveLength(1);
   expect(cells[0]).toMatchObject({
     harness: "claude_code",
     providerId: "p-anth",
     modelId: "claude-sonnet-4.6",
+    effort: "",
   });
-  expect(cells[0].id).toBe("claude_code::p-anth::claude-sonnet-4.6");
+  expect(cells[0].id).toBe("claude_code::p-anth::claude-sonnet-4.6::");
   expect(cells[0].warning).toBeUndefined();
 });
 
@@ -101,7 +100,7 @@ test("openrouter expands across both harnesses when both selected", () => {
     providers: [openrouter],
     providerModels: [orAnthSonnet],
     providerSel: new Set([openrouter.id]),
-    modelSel: new Set([key(openrouter.id, orAnthSonnet.modelId)]),
+    modelSel: new Set([modelSelectionKey(openrouter.id, orAnthSonnet.modelId)]),
   });
   expect(cells.map((c) => c.harness).sort()).toEqual([
     "claude_code",
@@ -115,7 +114,7 @@ test("provider kinds whose harnesses are not selected emit nothing", () => {
     providers: [anthropicDirect],
     providerModels: [claudeSonnet],
     providerSel: new Set([anthropicDirect.id]),
-    modelSel: new Set([key(anthropicDirect.id, claudeSonnet.modelId)]),
+    modelSel: new Set([modelSelectionKey(anthropicDirect.id, claudeSonnet.modelId)]),
   });
   expect(cells).toHaveLength(0);
 });
@@ -126,7 +125,7 @@ test("unselected providers and models are skipped", () => {
     providers: [anthropicDirect, openrouter],
     providerModels: [claudeSonnet, orAnthSonnet],
     providerSel: new Set([anthropicDirect.id]),
-    modelSel: new Set([key(anthropicDirect.id, claudeSonnet.modelId)]),
+    modelSel: new Set([modelSelectionKey(anthropicDirect.id, claudeSonnet.modelId)]),
   });
   expect(cells).toHaveLength(1);
   expect(cells[0].providerId).toBe("p-anth");
@@ -138,7 +137,7 @@ test("non-anthropic OpenRouter model under claude_code carries a warning", () =>
     providers: [openrouter],
     providerModels: [orOaiGpt],
     providerSel: new Set([openrouter.id]),
-    modelSel: new Set([key(openrouter.id, orOaiGpt.modelId)]),
+    modelSel: new Set([modelSelectionKey(openrouter.id, orOaiGpt.modelId)]),
   });
   expect(cells).toHaveLength(1);
   expect(cells[0].warning).toBeDefined();
@@ -151,7 +150,7 @@ test("anthropic-prefixed OpenRouter model under claude_code has no warning", () 
     providers: [openrouter],
     providerModels: [orAnthSonnet],
     providerSel: new Set([openrouter.id]),
-    modelSel: new Set([key(openrouter.id, orAnthSonnet.modelId)]),
+    modelSel: new Set([modelSelectionKey(openrouter.id, orAnthSonnet.modelId)]),
   });
   expect(cells[0].warning).toBeUndefined();
 });
@@ -162,7 +161,7 @@ test("non-anthropic OpenRouter model under codex has no warning", () => {
     providers: [openrouter],
     providerModels: [orOaiGpt],
     providerSel: new Set([openrouter.id]),
-    modelSel: new Set([key(openrouter.id, orOaiGpt.modelId)]),
+    modelSel: new Set([modelSelectionKey(openrouter.id, orOaiGpt.modelId)]),
   });
   expect(cells[0].warning).toBeUndefined();
 });
@@ -201,9 +200,9 @@ test("multiple providers and models produce the full cartesian product", () => {
       openaiDirect.id,
     ]),
     modelSel: new Set([
-      key(anthropicDirect.id, claudeSonnet.modelId),
-      key(openrouter.id, orAnthSonnet.modelId),
-      key(openaiDirect.id, gpt5.modelId),
+      modelSelectionKey(anthropicDirect.id, claudeSonnet.modelId),
+      modelSelectionKey(openrouter.id, orAnthSonnet.modelId),
+      modelSelectionKey(openaiDirect.id, gpt5.modelId),
     ]),
   });
   // anthropic_direct × claude_code = 1
@@ -212,9 +211,55 @@ test("multiple providers and models produce the full cartesian product", () => {
   expect(cells).toHaveLength(4);
   const keys = cells.map((c) => c.id).sort();
   expect(keys).toEqual([
-    "claude_code::p-anth::claude-sonnet-4.6",
-    "claude_code::p-or::anthropic/claude-sonnet-4.6",
-    "codex::p-oai::gpt-5.5",
-    "codex::p-or::anthropic/claude-sonnet-4.6",
+    "claude_code::p-anth::claude-sonnet-4.6::",
+    "claude_code::p-or::anthropic/claude-sonnet-4.6::",
+    "codex::p-oai::gpt-5.5::",
+    "codex::p-or::anthropic/claude-sonnet-4.6::",
   ]);
+});
+
+test("effort variants produce distinct cells", () => {
+  const providerModels = [
+    model("p-csub", "claude-opus-4-7", { id: "m-low", effort: "low" }),
+    model("p-csub", "claude-opus-4-7", { id: "m-high", effort: "high" }),
+  ];
+  const cells = resolveCells({
+    harnessSel: new Set<Harness>(["claude_code"]),
+    providers: [claudeSub],
+    providerModels,
+    providerSel: new Set(["p-csub"]),
+    modelSel: new Set([
+      modelSelectionKey("p-csub", "claude-opus-4-7", "low"),
+      modelSelectionKey("p-csub", "claude-opus-4-7", "high"),
+    ]),
+  });
+  expect(cells).toHaveLength(2);
+  const ids = cells.map((c) => c.id);
+  expect(new Set(ids).size).toBe(2);
+  const efforts = cells.map((c) => c.effort).sort();
+  expect(efforts).toEqual(["high", "low"]);
+});
+
+test("modelSelectionKey encodes effort", () => {
+  expect(modelSelectionKey("p1", "m1", "low")).not.toBe(
+    modelSelectionKey("p1", "m1", "high"),
+  );
+  expect(modelSelectionKey("p1", "m1", "")).toBe("p1::m1::");
+  expect(modelSelectionKey("p1", "m1", "high")).toBe("p1::m1::high");
+});
+
+test("only selected effort variant is included in cells", () => {
+  const providerModels = [
+    model("p-csub", "claude-opus-4-7", { id: "m-low", effort: "low" }),
+    model("p-csub", "claude-opus-4-7", { id: "m-high", effort: "high" }),
+  ];
+  const cells = resolveCells({
+    harnessSel: new Set<Harness>(["claude_code"]),
+    providers: [claudeSub],
+    providerModels,
+    providerSel: new Set(["p-csub"]),
+    modelSel: new Set([modelSelectionKey("p-csub", "claude-opus-4-7", "high")]),
+  });
+  expect(cells).toHaveLength(1);
+  expect(cells[0].effort).toBe("high");
 });

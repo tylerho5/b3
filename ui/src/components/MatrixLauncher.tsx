@@ -137,6 +137,7 @@ export function MatrixLauncher({
           harness: c.harness,
           providerId: c.providerId,
           modelId: c.modelId,
+          effort: c.effort,
         })),
         skillIds: Array.from(skillSel),
         concurrency,
@@ -202,16 +203,17 @@ export function MatrixLauncher({
         <div className="launcher-row">
           <span className="launcher-label">models</span>
           {filteredModels.map((m) => {
-            const key = modelSelectionKey(m.providerId, m.modelId);
+            const key = modelSelectionKey(m.providerId, m.modelId, m.effort);
             const provider = providers.find((p) => p.id === m.providerId);
+            const label = m.effort ? `${m.modelId} · ${m.effort}` : m.modelId;
             return (
               <Chip
                 key={key}
                 active={modelSel.has(key)}
                 onClick={() => toggle(setModelSel, key)}
-                title={`${provider?.name ?? m.providerId} • ${m.modelId}`}
+                title={`${provider?.name ?? m.providerId} • ${m.modelId}${m.effort ? ` [${m.effort}]` : ""}`}
               >
-                {m.modelId}
+                {label}
               </Chip>
             );
           })}

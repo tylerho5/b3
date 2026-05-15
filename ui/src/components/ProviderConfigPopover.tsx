@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { Harness, Provider, ProviderModel } from "../types/shared";
 import { routeLabel } from "../lib/routeLabel";
+import { parseModelKey, modelKeyLabel } from "../lib/modelKey";
 import "../styles/provider-config-popover.css";
 
 interface Props {
@@ -61,8 +62,11 @@ export function ProviderConfigPopover({
     };
   }, [onClose]);
 
+  const { modelId, effort } = parseModelKey(modelName);
   const modelProviderIds = new Set(
-    providerModels.filter((m) => m.modelId === modelName).map((m) => m.providerId),
+    providerModels
+      .filter((m) => m.modelId === modelId && (effort === "" || m.effort === effort))
+      .map((m) => m.providerId),
   );
 
   function eligibleFor(harness: Harness): Provider[] {
@@ -74,7 +78,8 @@ export function ProviderConfigPopover({
       .sort((a, b) => a.id.localeCompare(b.id));
   }
 
-  const shortName = modelName.length > 28 ? modelName.slice(0, 28) + "…" : modelName;
+  const displayName = modelKeyLabel(modelName);
+  const shortName = displayName.length > 32 ? displayName.slice(0, 32) + "…" : displayName;
 
   return (
     <div className="pcp-popover" ref={popRef} onClick={(e) => e.stopPropagation()}>

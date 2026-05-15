@@ -20,7 +20,7 @@ import type { MaterializeMode } from "../skills/materialize";
 
 export interface LaunchInput {
   taskId: string;
-  matrix: Array<{ harness: Harness; providerId: string; modelId: string }>;
+  matrix: Array<{ harness: Harness; providerId: string; modelId: string; effort?: string }>;
   skillIds: string[];
   concurrency: number;
 }
@@ -55,7 +55,7 @@ export function launchMatrixRun(
     if (!provider) {
       throw new Error(`Provider not found: ${cell.providerId}`);
     }
-    const model = getProviderModel(app.db, cell.providerId, cell.modelId);
+    const model = getProviderModel(app.db, cell.providerId, cell.modelId, cell.effort);
     if (!model) {
       throw new Error(
         `Provider model not found: ${cell.providerId} / ${cell.modelId}`,

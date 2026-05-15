@@ -1,4 +1,5 @@
 import type { Harness, Provider, ProviderKind, ProviderModel } from "../types/shared";
+import { parseModelKey } from "./modelKey";
 
 type RouteTier = "subscription" | "per_token";
 
@@ -19,6 +20,7 @@ const KIND_HARNESSES: Record<ProviderKind, ReadonlyArray<Harness>> = {
 
 export interface ResolveRouteInput {
   modelName: string;
+  effort?: string;
   harness: Harness;
   providers: Provider[];
   providerModels: ProviderModel[];
@@ -27,13 +29,16 @@ export interface ResolveRouteInput {
 
 export function resolveRoute({
   modelName,
+  effort,
   harness,
   providers,
   providerModels,
   pins,
 }: ResolveRouteInput): string | null {
   const modelProviderIds = new Set(
-    providerModels.filter((m) => m.modelId === modelName).map((m) => m.providerId),
+    providerModels
+      .filter((m) => m.modelId === modelName && (effort === undefined || m.effort === effort))
+      .map((m) => m.providerId),
   );
 
   const eligible = providers.filter(
@@ -60,12 +65,15 @@ export function resolveRoute({
 }
 
 export function nativeHarnessesForModel(
-  modelName: string,
+  modelKey: string,
   providers: Provider[],
   providerModels: ProviderModel[],
 ): Harness[] {
+  const { modelId, effort } = parseModelKey(modelKey);
   const modelProviderIds = new Set(
-    providerModels.filter((m) => m.modelId === modelName).map((m) => m.providerId),
+    providerModels
+      .filter((m) => m.modelId === modelId && (effort === "" || m.effort === effort))
+      .map((m) => m.providerId),
   );
   const harnesses = new Set<Harness>();
   for (const p of providers) {

@@ -2,6 +2,7 @@ import "../styles/matrix-grid.css";
 import type { Harness, Run } from "../types/shared";
 import type { CellState } from "../hooks/useMatrixSelection";
 import { cellKey } from "../hooks/useMatrixSelection";
+import { modelKeyLabel } from "../lib/modelKey";
 
 export type CellRunState = "pending" | "running" | "success" | "error";
 
@@ -74,7 +75,7 @@ function ConfigureGrid({
                 onClick={() => onConfigureModel?.(modelName)}
               >
                 <span className="mg-model-name-text">
-                  {modelName.length > 28 ? modelName.slice(0, 28) + "…" : modelName}
+                  {(() => { const d = modelKeyLabel(modelName); return d.length > 32 ? d.slice(0, 32) + "…" : d; })()}
                 </span>
                 <span
                   className="mg-row-remove"

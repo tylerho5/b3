@@ -19,12 +19,12 @@ const openrouter: Provider = {
   baseUrl: null, apiKey: null, apiKeyEnvRef: null, createdAt: "", updatedAt: "",
 };
 
-function pm(modelId: string, providerId: string): ProviderModel {
+function pm(modelId: string, providerId: string, effort = ""): ProviderModel {
   return {
     id: `${providerId}-${modelId}`, providerId, modelId,
     displayName: modelId, contextLength: null,
     inputCostPerMtok: null, outputCostPerMtok: null,
-    tier: null, supportedParameters: null, addedAt: "",
+    tier: null, effort, supportedParameters: null, canonicalId: null, addedAt: "",
   };
 }
 
@@ -109,4 +109,38 @@ test("alphabetical tiebreak among same-tier providers", () => {
     modelName: "m", harness: "claude_code",
     providers, providerModels: models, pins: {},
   })).toBe("a-provider");
+});
+
+test("effort filters to matching row when multiple efforts exist", () => {
+  const providers = [ccSub];
+  const models = [
+    pm("claude-opus-4-7", "cc-sub", "low"),
+    pm("claude-opus-4-7", "cc-sub", "high"),
+  ];
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", effort: "high", harness: "claude_code",
+    providers, providerModels: models, pins: {},
+  })).toBe("cc-sub");
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", effort: "low", harness: "claude_code",
+    providers, providerModels: models, pins: {},
+  })).toBe("cc-sub");
+});
+
+test("resolveRoute without effort matches any effort row", () => {
+  const providers = [ccSub];
+  const models = [pm("claude-opus-4-7", "cc-sub", "high")];
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", harness: "claude_code",
+    providers, providerModels: models, pins: {},
+  })).toBe("cc-sub");
+});
+
+test("resolveRoute returns null when effort does not match", () => {
+  const providers = [ccSub];
+  const models = [pm("claude-opus-4-7", "cc-sub", "high")];
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", effort: "low", harness: "claude_code",
+    providers, providerModels: models, pins: {},
+  })).toBeNull();
 });
