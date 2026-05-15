@@ -126,9 +126,11 @@ export const api = {
   async removeProviderModel(
     providerId: string,
     modelId: string,
+    effort?: string,
   ): Promise<void> {
+    const qs = effort !== undefined ? `?effort=${encodeURIComponent(effort)}` : "";
     const res = await fetch(
-      `/api/providers/${providerId}/models/${encodeURIComponent(modelId)}`,
+      `/api/providers/${providerId}/models/${encodeURIComponent(modelId)}${qs}`,
       { method: "DELETE" },
     );
     if (!res.ok) throw new Error(res.statusText);
