@@ -5,7 +5,6 @@ import { SubscriptionTile } from "../components/providers/SubscriptionTile";
 import { OpenRouterTile } from "../components/providers/OpenRouterTile";
 import { ApiProviderRow } from "../components/providers/ApiProviderRow";
 import { AddProviderModal } from "../components/providers/AddProviderModal";
-import { JudgeTemplateEditor } from "../components/providers/JudgeTemplateEditor";
 import "../styles/providers.css";
 
 export function Providers() {
@@ -128,11 +127,6 @@ export function Providers() {
             ))}
           </div>
         )}
-      </section>
-
-      <section className="providers-section">
-        <h2 className="providers-section-head">Judge template</h2>
-        <JudgeTemplateEditor />
       </section>
 
       {modalOpen && (

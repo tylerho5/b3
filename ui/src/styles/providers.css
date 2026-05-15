@@ -93,7 +93,6 @@
 .providers-section-bar .spacer,
 .modal-header .spacer,
 .catalog-toolbar .spacer,
-.judge-editor-toolbar .spacer,
 .modal-footer .spacer {
   flex: 1;
 }
@@ -473,23 +472,3 @@
   margin-right: 12px;
 }
 
-/* Judge editor ------------------------------------------------------------ */
-
-.judge-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.judge-editor-toolbar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.judge-textarea {
-  width: 100%;
-  min-height: 220px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  box-sizing: border-box;
-}
