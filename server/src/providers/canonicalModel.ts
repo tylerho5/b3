@@ -6,10 +6,14 @@ const FUZZY_THRESHOLD = 0.85;
 
 function normalize(s: string): string {
   let n = s.toLowerCase().replace(/[-_.]+/g, "-");
-  for (const suf of MODIFIER_SUFFIXES) {
-    if (n.endsWith(suf)) {
-      n = n.slice(0, -suf.length);
-      break;
+  // Strip all known modifier suffixes (e.g. "model-latest-instruct" → "model")
+  let prev = "";
+  while (n !== prev) {
+    prev = n;
+    for (const suf of MODIFIER_SUFFIXES) {
+      if (n.endsWith(suf)) {
+        n = n.slice(0, -suf.length);
+      }
     }
   }
   return n;

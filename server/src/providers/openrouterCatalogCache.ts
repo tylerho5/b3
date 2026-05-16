@@ -38,6 +38,9 @@ export async function refreshCatalog(
     console.warn(
       `[b3] openrouter catalog refresh failed: ${(e as Error).message}`,
     );
+    if (e instanceof Error && e.stack) {
+      console.warn(`[b3] ${e.stack}`);
+    }
   }
 }
 

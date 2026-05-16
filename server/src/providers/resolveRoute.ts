@@ -58,7 +58,7 @@ export function resolveRoute({
   for (const tier of TIER_ORDER) {
     const candidates = eligible
       .filter((p) => routeTier(p.kind) === tier)
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .sort((a, b) => a.name.localeCompare(b.name));
     if (candidates.length > 0) return candidates[0].id;
   }
 
