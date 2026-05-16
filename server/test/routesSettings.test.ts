@@ -10,11 +10,12 @@ afterEach(() => {
   t.cleanup();
 });
 
-test("GET /api/settings/judge returns null template when unset", async () => {
+test("GET /api/settings/judge returns default template when unset", async () => {
   const r = await t.fetch("/api/settings/judge");
   expect(r.status).toBe(200);
-  const body = (await r.json()) as { template: string | null };
-  expect(body.template).toBeNull();
+  const body = (await r.json()) as { template: string };
+  expect(body.template).toBeTruthy();
+  expect(body.template).toContain("{task_name}");
 });
 
 test("GET /api/settings/judge returns the stored template", async () => {

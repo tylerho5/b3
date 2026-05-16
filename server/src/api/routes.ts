@@ -18,6 +18,28 @@ import { refineTask } from "../refiner/refine";
 import type { AppState } from "../state/app";
 import { launchMatrixRun } from "../orchestrator/launch";
 import { estimateMatrix } from "../estimator";
+
+const DEFAULT_JUDGE_TEMPLATE = `I want you to score an AI coding agent's run.
+
+Task: {task_name}
+Prompt:
+{task_prompt}
+
+Test command: \`{test_command}\`
+Tests: {test_status}
+
+Run artifacts at: {run_path}/
+  - workdir/        — final state of the agent's working tree
+  - workdir.diff    — git diff vs. base commit
+  - transcript.md   — full agent transcript
+  - test.log        — test output
+  - events.jsonl    — structured event stream
+  - meta.json       — harness, model, provider, usage, durations
+
+Please:
+  1. Read the transcript and diff.
+  2. Score 1–5 on (a) solution quality, (b) diff minimality, (c) agent efficiency.
+  3. Flag concerning patterns (hallucinated APIs, needless refactors, skipped tests).`;
 import {
   createProvider,
   deleteProvider,
@@ -294,7 +316,7 @@ export async function handleRequest(
 
   // Settings
   if (path === "/api/settings/judge" && method === "GET") {
-    return json({ template: getSetting(app.db, "judge_template") });
+    return json({ template: getSetting(app.db, "judge_template") || DEFAULT_JUDGE_TEMPLATE });
   }
   if (path === "/api/settings/judge" && method === "PUT") {
     const body = await readBody<{ template?: string }>(req);
@@ -328,7 +350,7 @@ export async function handleRequest(
     }
     const triples = body.cells
       .filter(
-        (c): c is { harness: string; providerId: string; modelId: string } =>
+        (c): c is { harness: string; providerId: string; modelId: string; effort?: string } =>
           typeof c?.harness === "string" &&
           typeof c?.providerId === "string" &&
           typeof c?.modelId === "string",
@@ -337,6 +359,7 @@ export async function handleRequest(
         harness: c.harness,
         providerId: c.providerId,
         modelId: c.modelId,
+        effort: c.effort,
       }));
     return json(estimateMatrix(app.db, triples));
   }
@@ -434,7 +457,7 @@ export async function handleRequest(
     const task = getTask(app.db, m.matrixRun.taskId);
     if (!task) return notFound();
     const runDir = join(app.runsRoot, runId);
-    const tmpl = (getSetting(app.db, "judge_template") ?? "")
+    const tmpl = getSetting(app.db, "judge_template") || DEFAULT_JUDGE_TEMPLATE
       .replace("{task_name}", task.name)
       .replace("{task_prompt}", task.prompt)
       .replace("{test_command}", task.testCommand ?? "")
