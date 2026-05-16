@@ -21,11 +21,12 @@ export function buildSpawnEnv(
 
   if (provider.kind === "claude_subscription") {
     const env: SpawnEnv = {};
+    env.ANTHROPIC_API_KEY = "";
     applyModelEnv(env, model);
     return env;
   }
   if (provider.kind === "codex_subscription") {
-    return {};
+    return { OPENAI_API_KEY: "" };
   }
 
   const key = resolveCredential(provider);
