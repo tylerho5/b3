@@ -37,16 +37,28 @@ test("subscription wins over per-token", () => {
   })).toBe("cc-sub");
 });
 
-test("openrouter is per-token, not its own tier", () => {
+test("openrouter beats direct API but loses to subscription", () => {
+  // subscription > openrouter
   const providers = [openrouter, ccSub];
   const models = [pm("some-model", "or"), pm("some-model", "cc-sub")];
-  // With ccSub eligible, it should win (subscription tier beats per-token)
   expect(resolveRoute({
     modelName: "some-model", harness: "claude_code",
     providers, providerModels: models, pins: {},
   })).toBe("cc-sub");
 
-  // Without ccSub (codex harness), openrouter should resolve as per-token
+  // openrouter > direct per-token
+  const directAnthropic: Provider = {
+    id: "anthro", name: "Anthropic Direct", kind: "anthropic_api_direct",
+    baseUrl: null, apiKey: null, apiKeyEnvRef: null, createdAt: "", updatedAt: "",
+  };
+  const providers2 = [directAnthropic, openrouter];
+  const models2 = [pm("claude-opus-4-7", "anthro"), pm("claude-opus-4-7", "or")];
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", harness: "claude_code",
+    providers: providers2, providerModels: models2, pins: {},
+  })).toBe("or");
+
+  // codex via openrouter (no codex_sub present)
   expect(resolveRoute({
     modelName: "some-model", harness: "codex",
     providers, providerModels: models, pins: {},

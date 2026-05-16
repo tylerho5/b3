@@ -1,10 +1,11 @@
 import type { Harness, Provider, ProviderKind, ProviderModel } from "../types/shared";
 import { parseModelKey } from "./modelKey";
 
-type RouteTier = "subscription" | "per_token";
+type RouteTier = "subscription" | "openrouter" | "per_token";
 
 function routeTier(kind: ProviderKind): RouteTier {
   if (kind === "claude_subscription" || kind === "codex_subscription") return "subscription";
+  if (kind === "openrouter") return "openrouter";
   return "per_token";
 }
 
@@ -53,7 +54,7 @@ export function resolveRoute({
     if (pinned) return pinned.id;
   }
 
-  const TIER_ORDER: RouteTier[] = ["subscription", "per_token"];
+  const TIER_ORDER: RouteTier[] = ["subscription", "openrouter", "per_token"];
   for (const tier of TIER_ORDER) {
     const candidates = eligible
       .filter((p) => routeTier(p.kind) === tier)
