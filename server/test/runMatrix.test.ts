@@ -198,3 +198,49 @@ test("cancellation kills running children and marks them canceled", async () => 
     cleanup();
   }
 });
+
+test("concurrency >= cell count: all cells run in parallel (peak == cell count)", async () => {
+  const { db, taskId, cleanup } = setup();
+  try {
+    const N = 7;
+    const matrixId = createMatrixRun(db, {
+      taskId,
+      skillIds: [],
+      concurrency: N,
+    });
+    const cellRunIds: string[] = [];
+    for (let i = 0; i < N; i++) {
+      cellRunIds.push(
+        createRun(db, {
+          matrixRunId: matrixId,
+          harness: "claude_code",
+          providerId: `p-${i}`,
+          modelId: "m",
+          worktreePath: "",
+        }),
+      );
+    }
+    let active = 0;
+    let peak = 0;
+    const m = runMatrix({
+      db,
+      matrixRunId: matrixId,
+      runIds: cellRunIds,
+      concurrency: N,
+      runOneFn: async ({ runId }) => {
+        active++;
+        peak = Math.max(peak, active);
+        await new Promise((r) => setTimeout(r, 50));
+        db.run(
+          "UPDATE runs SET status='passed', completed_at = ? WHERE id = ?",
+          [new Date().toISOString(), runId],
+        );
+        active--;
+      },
+    });
+    await m.done;
+    expect(peak).toBe(N);
+  } finally {
+    cleanup();
+  }
+});

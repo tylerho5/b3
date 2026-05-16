@@ -14,6 +14,9 @@ export function NavRail() {
       <NavLink to="/providers" className="sb-item">
         providers
       </NavLink>
+      <NavLink to="/settings" className="sb-item">
+        settings
+      </NavLink>
     </nav>
   );
 }

@@ -26,10 +26,13 @@ cd ui && bun run dev          # ui only
 ## Test suite
 
 ```bash
-cd server && bun test                  # full suite (~60-90s, includes integration)
-cd server && bun test test/db.test.ts  # single file
-cd server && bunx --bun tsc --noEmit -p .   # typecheck (run from server/, NOT root)
+cd server && bun test                          # full suite (~60-90s, includes integration)
+cd server && B3_SKIP_CLI_TESTS=1 bun test      # skip real-CLI tests (~6s, local dev)
+cd server && bun test test/db.test.ts          # single file
+cd server && bunx --bun tsc --noEmit -p .      # typecheck (run from server/, NOT root)
 ```
+
+`B3_SKIP_CLI_TESTS=1` skips the 7 tests that spawn `claude` / `codex` (the same ones that auto-skip when the binary isn't on PATH). Use during development to keep the loop tight; let the unflagged run gate releases.
 
 55 tests across 14 files. Pure unit + real-CLI integration. No mocks.
 
@@ -38,7 +41,6 @@ cd server && bunx --bun tsc --noEmit -p .   # typecheck (run from server/, NOT r
 | `db.test.ts` | Schema, idempotent migrations | — |
 | `tasks.test.ts` | Task CRUD | — |
 | `runs.test.ts` | matrix_runs / runs / segments / events repos | — |
-| `config.test.ts` | TOML loader, env interpolation, missing-var errors | — |
 | `skills.test.ts` | Discovery (4 sources) + materialization (copy/symlink/collision) | — |
 | `worktree.test.ts` | `createWorktree`, `captureDiff`, `removeWorktree`, baseRepo=null mode | — |
 | `claudeCode.test.ts` | Real `claude -p` stream-json round-trip | `skipIf` no `claude` |
@@ -53,7 +55,7 @@ cd server && bunx --bun tsc --noEmit -p .   # typecheck (run from server/, NOT r
 Integration test gotchas:
 - Real CLI calls cost real money (~$0.02/refine, $0.001/runOne). Re-running the suite is not free.
 - Tests rely on the user's existing `claude` and `codex` CLI auth (OAuth keychain). Setting `ANTHROPIC_*` env vars would auth as a different user.
-- The Codex test specifically uses `gpt-5.4` because ChatGPT Free account auth rejects `gpt-5`/`gpt-5.5`/`gpt-5-codex`.
+- The Codex test uses `gpt-5.4`.
 - `testRunner.test.ts` "two concurrent test phases serialize" measures wall-clock — flaky on heavily contended CI. Currently 1-flaky-rerun observed in 30+ runs.
 - `bun test` reuses the same process, and `testRunner` uses a module-level promise mutex. Tests that share that mutex can interact across files.
 
@@ -137,9 +139,8 @@ A few things that bite anyone touching this code without context:
 - Broadcast default is `wait` mode, not `immediate`. Holds delivery until all live sessions hit `segment_end`. Late-joining sessions don't retroactively receive prior broadcasts.
 - Diff capture is `git add -A && git diff --cached <baseCommit>` in one shot. Don't try to compose multiple diff calls.
 - `baseRepo: null` worktree mode creates a `git init` + empty `.gitkeep` commit. Without that empty commit, `git diff` against HEAD doesn't work.
-- Config soft-loads by default in the server: missing `${VAR}` env vars cause that provider to be skipped with a `console.warn`, not a crash. Tests use strict mode.
-- Config env interpolation is `${VAR}` only — no `${VAR:-default}` shell-style fallbacks. The TOML parser rejects `:-`.
-- `GET /api/providers` returns the raw `tomlText`. The editor uses this to preserve comments and `${VAR}` placeholders. Never re-synthesize from parsed config — comments and placeholders are lost.
+- Providers, models, and the judge template live in SQLite. Edits go through the Providers UI / `/api/providers/*` CRUD — there is no TOML config file.
+- Provider credentials can be plaintext (`apiKey`) or env-ref (`apiKeyEnvRef` → `process.env[ref]`). The recipe in `providers/recipes.ts` resolves whichever is set; missing env-refs surface at spawn time as a clear error.
 - Server `tsconfig.json` types must be `["bun"]`, not `["bun-types"]` — actual package is `@types/bun`.
 - `Bun.spawnSync(["claude", "--version"])` throws if `claude` is not on PATH but returns normally on non-zero exit. Wrap in try/catch when probing CLI availability.
 

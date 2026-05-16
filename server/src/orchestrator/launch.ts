@@ -3,6 +3,12 @@ import {
   createRun,
   updateRunStatus,
 } from "../db/runs";
+import { getProvider, type Harness, type Provider } from "../db/providers";
+import { supportedHarnesses } from "../providers/kinds";
+import {
+  getProviderModel,
+  type ProviderModel,
+} from "../db/providerModels";
 import { getTask } from "../db/tasks";
 import { runOne } from "./runOne";
 import { runMatrix } from "./runMatrix";
@@ -10,13 +16,12 @@ import { BroadcastQueue } from "./broadcast";
 import { ClaudeCodeAdapter } from "../adapters/claudeCode";
 import { CodexAdapter } from "../adapters/codex";
 import type { AppState, ActiveMatrix } from "../state/app";
-import type { Harness, ProviderConfig } from "../config/types";
 import type { HarnessAdapter, NormalizedEvent } from "../adapters/types";
 import type { MaterializeMode } from "../skills/materialize";
 
 export interface LaunchInput {
   taskId: string;
-  matrix: Array<{ harness: Harness; providerId: string; modelId: string }>;
+  matrix: Array<{ harness: Harness; providerId: string; modelId: string; effort?: string }>;
   skillIds: string[];
   concurrency: number;
 }
@@ -24,12 +29,14 @@ export interface LaunchInput {
 interface RunCellSpec {
   runId: string;
   harness: Harness;
-  provider: ProviderConfig;
-  modelId: string;
+  provider: Provider;
+  model: ProviderModel;
 }
 
 function adapterFor(harness: Harness): HarnessAdapter {
-  return harness === "claude_code" ? new ClaudeCodeAdapter() : new CodexAdapter();
+  if (harness === "claude_code") return new ClaudeCodeAdapter();
+  if (harness === "codex") return new CodexAdapter();
+  throw new Error(`unknown harness: ${harness}`);
 }
 
 export function launchMatrixRun(
@@ -39,36 +46,47 @@ export function launchMatrixRun(
   const task = getTask(app.db, input.taskId);
   if (!task) throw new Error(`Task not found: ${input.taskId}`);
 
-  const matrixId = createMatrixRun(app.db, {
-    taskId: input.taskId,
-    skillIds: input.skillIds,
-    concurrency: input.concurrency,
-  });
-
+  // Validate cells before entering the transaction (reads are harmless).
   const cellSpecs: RunCellSpec[] = [];
   for (const cell of input.matrix) {
-    const provider = app.config.providers.find(
-      (p) => p.harness === cell.harness && p.id === cell.providerId,
-    );
+    const provider = getProvider(app.db, cell.providerId);
     if (!provider) {
+      throw new Error(`Provider not found: ${cell.providerId}`);
+    }
+    if (!supportedHarnesses(provider.kind).includes(cell.harness)) {
       throw new Error(
-        `Provider not found: ${cell.harness}:${cell.providerId}`,
+        `Provider ${provider.name} (${provider.kind}) does not support harness ${cell.harness}`,
       );
     }
-    const runId = createRun(app.db, {
-      matrixRunId: matrixId,
-      harness: cell.harness,
-      providerId: cell.providerId,
-      modelId: cell.modelId,
-      worktreePath: "",
-    });
-    cellSpecs.push({
-      runId,
-      harness: cell.harness,
-      provider,
-      modelId: cell.modelId,
-    });
+    const model = getProviderModel(app.db, cell.providerId, cell.modelId, cell.effort);
+    if (!model) {
+      const effortSuffix = cell.effort ? ` (effort: ${cell.effort})` : "";
+      throw new Error(
+        `Provider model not found: ${cell.providerId} / ${cell.modelId}${effortSuffix}`,
+      );
+    }
+    cellSpecs.push({ runId: "", harness: cell.harness, provider, model });
   }
+
+  // Write matrix + runs in a single transaction so failure rolls back.
+  const matrixId = app.db.transaction(() => {
+    const mid = createMatrixRun(app.db, {
+      taskId: input.taskId,
+      skillIds: input.skillIds,
+      concurrency: input.concurrency,
+    });
+    for (const spec of cellSpecs) {
+      spec.runId = createRun(app.db, {
+        matrixRunId: mid,
+        harness: spec.harness,
+        providerId: spec.provider.id,
+        modelId: spec.model.modelId,
+        effort: spec.model.effort,
+        worktreePath: "",
+      });
+    }
+    return mid;
+  })();
 
   const skillBundles = app.skills.filter((s) => input.skillIds.includes(s.id));
   const skillMode: MaterializeMode = "copy";
@@ -150,9 +168,8 @@ export function launchMatrixRun(
       baseCommit: task.baseCommit,
       runsRoot: app.runsRoot,
       provider: spec.provider,
-      model:
-        spec.provider.models.find((m) => m.id === spec.modelId) ??
-        { id: spec.modelId },
+      model: spec.model,
+      harness: spec.harness,
       skillBundles,
       skillMode,
       adapter: wrappedAdapter,

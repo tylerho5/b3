@@ -4,6 +4,32 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CodexAdapter } from "../src/adapters/codex";
 import type { NormalizedEvent } from "../src/adapters/types";
+import type { Provider } from "../src/db/providers";
+import type { ProviderModel } from "../src/db/providerModels";
+
+const CODEX_SUBSCRIPTION_PROVIDER: Provider = {
+  id: "p-codex-sub",
+  name: "Codex (subscription)",
+  kind: "codex_subscription",
+  baseUrl: null,
+  apiKey: null,
+  apiKeyEnvRef: null,
+  createdAt: "2026-01-01",
+  updatedAt: "2026-01-01",
+};
+
+const GPT_MODEL: ProviderModel = {
+  id: "m-gpt",
+  providerId: CODEX_SUBSCRIPTION_PROVIDER.id,
+  modelId: "gpt-5.4",
+  displayName: "GPT 5.4",
+  contextLength: null,
+  inputCostPerMtok: null,
+  outputCostPerMtok: null,
+  tier: null,
+  supportedParameters: null,
+  addedAt: "2026-01-01",
+};
 
 function probeCodex(): boolean {
   try {
@@ -13,7 +39,7 @@ function probeCodex(): boolean {
     return false;
   }
 }
-const HAVE_CODEX = probeCodex();
+const HAVE_CODEX = probeCodex() && !process.env.B3_SKIP_CLI_TESTS;
 
 test.skipIf(!HAVE_CODEX)(
   "codex adapter spawns and captures thread_id + emits expected events",
@@ -25,16 +51,8 @@ test.skipIf(!HAVE_CODEX)(
       runId: "test-run",
       workdir: dir,
       initialPrompt: "Reply with exactly: PONG",
-      env: {},
-      provider: {
-        harness: "codex",
-        id: "openai-direct",
-        label: "OpenAI",
-        pricingMode: "subscription",
-        env: {},
-        models: [],
-      },
-      model: { id: "gpt-5.4" },
+      provider: CODEX_SUBSCRIPTION_PROVIDER,
+      model: GPT_MODEL,
       skills: [],
       onEvent: (ev) => events.push(ev),
     });

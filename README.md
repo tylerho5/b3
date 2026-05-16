@@ -12,17 +12,6 @@ Skills as first-class inputs.
 - `claude` CLI (Claude Code), authenticated. Used by the orchestrator and the
   in-flow task refiner.
 - `codex` CLI, authenticated, if you want to run the Codex harness.
-- Provider API keys exported in your shell as env vars — b3 reads them via
-  `${VAR}` interpolation in `~/.config/b3/config.toml` and never persists
-  secrets. Common ones:
-  - `ANTHROPIC_API_KEY` for Anthropic-direct
-  - `ALIBABA_CLAUDE_CODE_API_KEY` for Alibaba Coding Plan
-  - `GLM_API_KEY` for z.ai (GLM)
-  - `OPENROUTER_CLAUDE_CODE_API_KEY` for OpenRouter through Claude Code
-  - `OPENAI_API_KEY` for OpenAI-direct (Codex)
-
-Providers whose env vars are missing are skipped at startup with a console
-warning; b3 still boots with whatever subset is configured.
 
 ## Setup
 
@@ -30,26 +19,12 @@ warning; b3 still boots with whatever subset is configured.
 bun install
 ```
 
-On first run, b3 copies a default config to `~/.config/b3/config.toml` if one
-isn't already there. Edit it (or use the Providers UI) to add/remove providers.
-
-### Codex profile (optional)
-
-If you want to route Codex through OpenRouter (or any custom provider),
-configure a profile in `~/.codex/config.toml`. Example:
-
-```toml
-[profiles.openrouter]
-model_provider = "openrouter"
-
-[model_providers.openrouter]
-name = "OpenRouter"
-base_url = "https://openrouter.ai/api/v1"
-env_key = "OPENROUTER_API_KEY"
-```
-
-Then reference `codex_profile = "openrouter"` in the corresponding b3 provider
-block.
+Providers, models, and the judge template live in SQLite at
+`~/.local/share/b3/b3.db` and are managed entirely from the **Providers** page
+in the UI. Add subscriptions, OpenRouter, Anthropic-direct, OpenAI-direct, or
+custom OpenAI/Anthropic-compatible endpoints there. API keys can be stored
+inline (plaintext in the local DB) or referenced via `apiKeyEnvRef` so the
+secret is read from your shell environment at spawn time.
 
 ### Heads-up on Codex model availability
 

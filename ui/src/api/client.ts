@@ -2,11 +2,22 @@ import type {
   Task,
   TaskInput,
   RefinedTask,
-  ProviderConfig,
+  Provider,
+  ProviderModel,
+  ProviderModelInput,
+  CreateProviderInput,
+  UpdateProviderInput,
+  ProviderProbeResult,
+  OpenRouterCatalog,
+  SubscriptionStatus,
+  Harness,
   SkillBundle,
   MatrixRun,
+  MatrixEstimate,
   Run,
   RunSegment,
+  RecentModelsResponse,
+  RoutePinsResponse,
 } from "../types/shared";
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -69,19 +80,102 @@ export const api = {
     );
   },
 
-  async getProviders(): Promise<{
-    version: number;
-    judge: { template: string };
-    providers: ProviderConfig[];
-    tomlText: string | null;
+  async listProviders(): Promise<{
+    providers: Provider[];
+    models: ProviderModel[];
   }> {
     return jsonOrThrow(await fetch("/api/providers"));
   },
-  async putProviders(toml: string): Promise<void> {
-    const res = await fetch("/api/providers", {
+  async createProvider(input: CreateProviderInput): Promise<Provider> {
+    return jsonOrThrow(
+      await fetch("/api/providers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    );
+  },
+  async updateProvider(
+    id: string,
+    patch: UpdateProviderInput,
+  ): Promise<Provider> {
+    return jsonOrThrow(
+      await fetch(`/api/providers/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      }),
+    );
+  },
+  async deleteProvider(id: string): Promise<void> {
+    const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(res.statusText);
+  },
+  async addProviderModels(
+    providerId: string,
+    models: ProviderModelInput[],
+  ): Promise<{ models: ProviderModel[] }> {
+    return jsonOrThrow(
+      await fetch(`/api/providers/${providerId}/models`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ models }),
+      }),
+    );
+  },
+  async removeProviderModel(
+    providerId: string,
+    modelId: string,
+    effort?: string,
+  ): Promise<void> {
+    const qs = effort !== undefined ? `?effort=${encodeURIComponent(effort)}` : "";
+    const res = await fetch(
+      `/api/providers/${providerId}/models/${encodeURIComponent(modelId)}${qs}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error(res.statusText);
+  },
+  async updateProviderModel(
+    providerId: string,
+    modelId: string,
+    patch: Partial<ProviderModelInput>,
+  ): Promise<ProviderModel> {
+    return jsonOrThrow(
+      await fetch(
+        `/api/providers/${providerId}/models/${encodeURIComponent(modelId)}`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(patch),
+        },
+      ),
+    );
+  },
+  async probeProvider(id: string): Promise<ProviderProbeResult> {
+    return jsonOrThrow(
+      await fetch(`/api/providers/${id}/probe`, { method: "POST" }),
+    );
+  },
+  async getOpenRouterCatalog(providerId: string): Promise<OpenRouterCatalog> {
+    return jsonOrThrow(
+      await fetch(
+        `/api/providers/openrouter/catalog?providerId=${encodeURIComponent(providerId)}`,
+      ),
+    );
+  },
+  async getSubscriptionStatus(harness: Harness): Promise<SubscriptionStatus> {
+    return jsonOrThrow(
+      await fetch(`/api/subscriptions/status?harness=${harness}`),
+    );
+  },
+  async getJudgeTemplate(): Promise<{ template: string | null }> {
+    return jsonOrThrow(await fetch("/api/settings/judge"));
+  },
+  async putJudgeTemplate(template: string): Promise<void> {
+    const res = await fetch("/api/settings/judge", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toml }),
+      body: JSON.stringify({ template }),
     });
     if (!res.ok) throw new Error(res.statusText);
   },
@@ -113,7 +207,7 @@ export const api = {
   },
   async launch(input: {
     taskId: string;
-    matrix: Array<{ harness: string; providerId: string; modelId: string }>;
+    matrix: Array<{ harness: string; providerId: string; modelId: string; effort?: string }>;
     skillIds?: string[];
     concurrency?: number;
   }): Promise<{ matrixRunId: string; cellRunIds: string[] }> {
@@ -122,6 +216,17 @@ export const api = {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),
+      }),
+    );
+  },
+  async estimateRuns(
+    cells: Array<{ harness: string; providerId: string; modelId: string; effort?: string }>,
+  ): Promise<MatrixEstimate> {
+    return jsonOrThrow(
+      await fetch("/api/runs/estimate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ cells }),
       }),
     );
   },
@@ -174,6 +279,40 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ score, notes }),
     });
+    if (!res.ok) throw new Error(res.statusText);
+  },
+
+  async listRecents(): Promise<RecentModelsResponse> {
+    return jsonOrThrow(await fetch("/api/recents"));
+  },
+  async recordRecent(modelName: string): Promise<void> {
+    const res = await fetch("/api/recents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ modelName }),
+    });
+    if (!res.ok) throw new Error(res.statusText);
+  },
+
+  async listRoutePins(): Promise<RoutePinsResponse> {
+    return jsonOrThrow(await fetch("/api/route-pins"));
+  },
+  async setRoutePin(modelName: string, harness: string, routeId: string): Promise<void> {
+    const res = await fetch(
+      `/api/route-pins/${encodeURIComponent(modelName)}/${encodeURIComponent(harness)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ routeId }),
+      },
+    );
+    if (!res.ok) throw new Error(res.statusText);
+  },
+  async deleteRoutePin(modelName: string, harness: string): Promise<void> {
+    const res = await fetch(
+      `/api/route-pins/${encodeURIComponent(modelName)}/${encodeURIComponent(harness)}`,
+      { method: "DELETE" },
+    );
     if (!res.ok) throw new Error(res.statusText);
   },
 };
