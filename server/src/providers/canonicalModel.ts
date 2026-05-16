@@ -23,8 +23,12 @@ function tokenSetSimilarity(a: string, b: string): number {
   return union === 0 ? 0 : inter / union;
 }
 
-export function resolveCanonicalId(db: DB, modelId: string): string | null {
-  const all = listCatalog(db);
+export function resolveCanonicalId(
+  db: DB,
+  modelId: string,
+  catalog?: { id: string }[],
+): string | null {
+  const all = catalog ?? listCatalog(db);
   if (all.length === 0) return null;
 
   // 1. Exact id match

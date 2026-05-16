@@ -1,6 +1,7 @@
 import { ulid } from "ulid";
 import type { DB } from "./index";
 import { resolveCanonicalId } from "../providers/canonicalModel";
+import { listCatalog } from "./openrouterCatalog";
 
 export interface ProviderModel {
   id: string;
@@ -68,6 +69,7 @@ export function addProviderModels(
   inputs: AddProviderModelInput[],
 ): ProviderModel[] {
   const now = new Date().toISOString();
+  const catalog = listCatalog(db);
   const out: ProviderModel[] = [];
   const insert = db.transaction((items: AddProviderModelInput[]) => {
     for (const item of items) {
@@ -78,7 +80,7 @@ export function addProviderModels(
         continue;
       }
       const id = ulid();
-      const canonicalId = resolveCanonicalId(db, item.modelId);
+      const canonicalId = resolveCanonicalId(db, item.modelId, catalog);
       db.run(
         `INSERT INTO provider_models
           (id, provider_id, model_id, display_name, context_length,
@@ -157,18 +159,20 @@ export function removeProviderModel(
   providerId: string,
   modelId: string,
   effort?: string,
-): void {
+): number {
+  let r: { changes: number };
   if (effort !== undefined) {
-    db.run(
+    r = db.run(
       "DELETE FROM provider_models WHERE provider_id = ? AND model_id = ? AND effort = ?",
       [providerId, modelId, effort],
     );
-    return;
+  } else {
+    r = db.run(
+      "DELETE FROM provider_models WHERE provider_id = ? AND model_id = ?",
+      [providerId, modelId],
+    );
   }
-  db.run(
-    "DELETE FROM provider_models WHERE provider_id = ? AND model_id = ?",
-    [providerId, modelId],
-  );
+  return r.changes;
 }
 
 export interface UpdateProviderModelInput {
@@ -221,14 +225,16 @@ export function updateProviderModel(
 
   if (sets.length === 0) return getProviderModel(db, providerId, modelId, effort);
 
+  const existing = getProviderModel(db, providerId, modelId, effort);
+  if (!existing) return null;
+
   vals.push(providerId, modelId);
   const effortClause = effort !== undefined ? " AND effort = ?" : "";
   if (effort !== undefined) vals.push(effort);
-  const r = db.run(
+  db.run(
     `UPDATE provider_models SET ${sets.join(", ")} WHERE provider_id = ? AND model_id = ?${effortClause}`,
     vals,
   );
-  if (r.changes === 0) return null;
   return getProviderModel(db, providerId, modelId, effort);
 }
 
@@ -238,9 +244,10 @@ export function backfillCanonicalIds(db: DB): number {
       "SELECT id, model_id FROM provider_models WHERE canonical_id IS NULL",
     )
     .all() as { id: string; model_id: string }[];
+  const catalog = listCatalog(db);
   let count = 0;
   for (const row of rows) {
-    const cid = resolveCanonicalId(db, row.model_id);
+    const cid = resolveCanonicalId(db, row.model_id, catalog);
     if (cid) {
       db.run("UPDATE provider_models SET canonical_id = ? WHERE id = ?", [
         cid,

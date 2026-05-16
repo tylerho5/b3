@@ -147,5 +147,8 @@ export function updateProvider(
 }
 
 export function deleteProvider(db: DB, id: string): void {
-  db.run("DELETE FROM providers WHERE id = ?", [id]);
+  const r = db.run("DELETE FROM providers WHERE id = ?", [id]);
+  if (r.changes === 0) {
+    throw new Error(`provider not found: ${id}`);
+  }
 }
