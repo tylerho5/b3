@@ -275,7 +275,7 @@ export async function handleRequest(
     if (!getProvider(app.db, id)) return notFound();
     const modelId = decodeURIComponent(encodedModelId);
     const body = await readBody<Partial<AddProviderModelInput>>(req);
-    const updated = updateProviderModel(app.db, id, modelId, body);
+    const updated = updateProviderModel(app.db, id, modelId, body.effort, body);
     if (!updated) return notFound();
     return json(updated);
   }

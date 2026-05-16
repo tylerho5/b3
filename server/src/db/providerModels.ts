@@ -184,6 +184,7 @@ export function updateProviderModel(
   db: DB,
   providerId: string,
   modelId: string,
+  effort: string | undefined,
   patch: UpdateProviderModelInput,
 ): ProviderModel | null {
   const sets: string[] = [];
@@ -218,15 +219,17 @@ export function updateProviderModel(
     );
   }
 
-  if (sets.length === 0) return getProviderModel(db, providerId, modelId);
+  if (sets.length === 0) return getProviderModel(db, providerId, modelId, effort);
 
   vals.push(providerId, modelId);
+  const effortClause = effort !== undefined ? " AND effort = ?" : "";
+  if (effort !== undefined) vals.push(effort);
   const r = db.run(
-    `UPDATE provider_models SET ${sets.join(", ")} WHERE provider_id = ? AND model_id = ?`,
+    `UPDATE provider_models SET ${sets.join(", ")} WHERE provider_id = ? AND model_id = ?${effortClause}`,
     vals,
   );
   if (r.changes === 0) return null;
-  return getProviderModel(db, providerId, modelId);
+  return getProviderModel(db, providerId, modelId, effort);
 }
 
 export function backfillCanonicalIds(db: DB): number {

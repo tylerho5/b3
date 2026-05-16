@@ -129,7 +129,7 @@ test("updateProviderModel updates editable fields", () => {
   const [m] = addProviderModels(db, providerId, [
     { modelId: "gpt-5.5", displayName: "GPT 5.5" },
   ]);
-  const updated = updateProviderModel(db, providerId, m.modelId, {
+  const updated = updateProviderModel(db, providerId, m.modelId, m.effort, {
     displayName: "GPT 5.5 Updated",
     tier: "opus",
     contextLength: 256000,
@@ -148,7 +148,7 @@ test("updateProviderModel updates editable fields", () => {
 });
 
 test("updateProviderModel returns null for missing row", () => {
-  const r = updateProviderModel(db, providerId, "nonexistent", {
+  const r = updateProviderModel(db, providerId, "nonexistent", undefined, {
     displayName: "x",
   });
   expect(r).toBeNull();
