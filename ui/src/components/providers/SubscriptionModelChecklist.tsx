@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { ProviderModel } from "../../types/shared";
 import {
@@ -27,6 +27,15 @@ export function SubscriptionModelChecklist({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimer.current !== null) clearTimeout(statusTimer.current);
+      if (busyTimer.current !== null) clearTimeout(busyTimer.current);
+    };
+  }, []);
 
   const curated = SUBSCRIPTION_MODELS[providerKind];
   const curatedIds = new Set(curated.map((m) => m.modelId));
@@ -67,39 +76,49 @@ export function SubscriptionModelChecklist({
     }
   };
 
-  const missingDefaults = curated.filter(
-    (m) =>
-      !m.excludeFromDefaults &&
-      !enabled.has(cellKey(m.modelId, RECOMMENDED_EFFORT)),
-  );
-
   const showStatus = (msg: string) => {
     setStatus(msg);
-    setTimeout(() => setStatus((cur) => (cur === msg ? null : cur)), 4000);
+    if (statusTimer.current !== null) clearTimeout(statusTimer.current);
+    statusTimer.current = setTimeout(() => {
+      setStatus((cur) => (cur === msg ? null : cur));
+      statusTimer.current = null;
+    }, 4000);
   };
 
   const applyDefaults = async () => {
-    if (missingDefaults.length === 0) {
-      showStatus("All recommended defaults already applied.");
-      return;
-    }
-    const toAdd = missingDefaults.map((m) => ({
-      modelId: m.modelId,
-      displayName: m.modelId,
-      effort: RECOMMENDED_EFFORT,
-    }));
-    setBusy("__defaults__");
+    // Remove all existing effort levels for curated models, then re-add
+    // the recommended ones. This is a reset, not an additive operation.
+    const toRemove = models.filter(
+      (m) => curatedIds.has(m.modelId) && m.effort,
+    );
+
+    const toAdd = curated
+      .filter((m) => !m.excludeFromDefaults)
+      .map((m) => ({
+        modelId: m.modelId,
+        displayName: m.modelId,
+        effort: RECOMMENDED_EFFORT,
+      }));
+
+    // Debounce the busy state so the button label doesn't flash on fast operations.
+    busyTimer.current = setTimeout(() => setBusy("__defaults__"), 200);
     setError(null);
-    setStatus(null);
     try {
-      await api.addProviderModels(providerId, toAdd);
+      for (const item of toRemove) {
+        await api.removeProviderModel(providerId, item.modelId, item.effort);
+      }
+      const added = await api.addProviderModels(providerId, toAdd);
       onChanged();
       showStatus(
-        `Added ${toAdd.length} model(s) with ${RECOMMENDED_EFFORT} effort.`,
+        `Defaults applied — ${added.models.length} model(s) set to ${RECOMMENDED_EFFORT}.`,
       );
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      if (busyTimer.current !== null) {
+        clearTimeout(busyTimer.current);
+        busyTimer.current = null;
+      }
       setBusy(null);
     }
   };
@@ -113,15 +132,11 @@ export function SubscriptionModelChecklist({
           className="secondary"
           onClick={() => void applyDefaults()}
           disabled={busy !== null}
-          title={
-            missingDefaults.length === 0
-              ? "All recommended defaults already applied"
-              : `Enable ${RECOMMENDED_EFFORT} effort for ${missingDefaults.length} model(s)`
-          }
+          title={`Remove all effort levels for curated models and reset to ${RECOMMENDED_EFFORT}`}
         >
           {busy === "__defaults__"
-            ? "applying…"
-            : "apply recommended defaults"}
+            ? "resetting…"
+            : "reset to recommended defaults"}
         </button>
       </div>
       {curated.map(({ modelId }) => (

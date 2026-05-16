@@ -44,7 +44,7 @@ export const EFFORTS: readonly Effort[] = [
 
 export interface SubscriptionModelEntry {
   modelId: string;
-  // Excluded from the "apply recommended defaults" action (e.g. 1m-context
+  // Excluded from the "reset to recommended defaults" action (e.g. 1m-context
   // variants the user opts into deliberately).
   excludeFromDefaults?: boolean;
 }
