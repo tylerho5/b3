@@ -34,7 +34,9 @@ interface RunCellSpec {
 }
 
 function adapterFor(harness: Harness): HarnessAdapter {
-  return harness === "claude_code" ? new ClaudeCodeAdapter() : new CodexAdapter();
+  if (harness === "claude_code") return new ClaudeCodeAdapter();
+  if (harness === "codex") return new CodexAdapter();
+  throw new Error(`unknown harness: ${harness}`);
 }
 
 export function launchMatrixRun(
@@ -44,12 +46,7 @@ export function launchMatrixRun(
   const task = getTask(app.db, input.taskId);
   if (!task) throw new Error(`Task not found: ${input.taskId}`);
 
-  const matrixId = createMatrixRun(app.db, {
-    taskId: input.taskId,
-    skillIds: input.skillIds,
-    concurrency: input.concurrency,
-  });
-
+  // Validate cells before entering the transaction (reads are harmless).
   const cellSpecs: RunCellSpec[] = [];
   for (const cell of input.matrix) {
     const provider = getProvider(app.db, cell.providerId);
@@ -63,25 +60,33 @@ export function launchMatrixRun(
     }
     const model = getProviderModel(app.db, cell.providerId, cell.modelId, cell.effort);
     if (!model) {
+      const effortSuffix = cell.effort ? ` (effort: ${cell.effort})` : "";
       throw new Error(
-        `Provider model not found: ${cell.providerId} / ${cell.modelId}`,
+        `Provider model not found: ${cell.providerId} / ${cell.modelId}${effortSuffix}`,
       );
     }
-    const runId = createRun(app.db, {
-      matrixRunId: matrixId,
-      harness: cell.harness,
-      providerId: cell.providerId,
-      modelId: cell.modelId,
-      effort: cell.effort,
-      worktreePath: "",
-    });
-    cellSpecs.push({
-      runId,
-      harness: cell.harness,
-      provider,
-      model,
-    });
+    cellSpecs.push({ runId: "", harness: cell.harness, provider, model });
   }
+
+  // Write matrix + runs in a single transaction so failure rolls back.
+  const matrixId = app.db.transaction(() => {
+    const mid = createMatrixRun(app.db, {
+      taskId: input.taskId,
+      skillIds: input.skillIds,
+      concurrency: input.concurrency,
+    });
+    for (const spec of cellSpecs) {
+      spec.runId = createRun(app.db, {
+        matrixRunId: mid,
+        harness: spec.harness,
+        providerId: spec.provider.id,
+        modelId: spec.model.modelId,
+        effort: spec.model.effort,
+        worktreePath: "",
+      });
+    }
+    return mid;
+  })();
 
   const skillBundles = app.skills.filter((s) => input.skillIds.includes(s.id));
   const skillMode: MaterializeMode = "copy";

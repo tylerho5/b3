@@ -141,6 +141,7 @@ export async function runOne(input: RunOneInput): Promise<void> {
   let handle: SessionHandle | null = null;
   let timeoutKill: ReturnType<typeof setTimeout> | null = null;
   let killed = false;
+  let closed = false;
 
   try {
     handle = await adapter.spawn({
@@ -161,6 +162,7 @@ export async function runOne(input: RunOneInput): Promise<void> {
     await waitSegmentEnd();
 
     if (timeoutKill) clearTimeout(timeoutKill);
+    closed = true;
     await adapter.close(handle);
 
     if (killed) {
@@ -221,7 +223,7 @@ export async function runOne(input: RunOneInput): Promise<void> {
     throw err;
   } finally {
     if (timeoutKill) clearTimeout(timeoutKill);
-    if (handle) {
+    if (handle && !closed) {
       try {
         await adapter.close(handle);
       } catch {

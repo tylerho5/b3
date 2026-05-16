@@ -257,25 +257,23 @@ export function incrementRunUsage(
     costUsd?: number;
   },
 ): void {
-  db.transaction(() => {
-    db.run(
-      `UPDATE runs SET
-         input_tokens       = input_tokens       + ?,
-         output_tokens      = output_tokens      + ?,
-         cache_read_tokens  = cache_read_tokens  + ?,
-         cache_write_tokens = cache_write_tokens + ?,
-         cost_usd           = cost_usd           + ?
-       WHERE id = ?`,
-      [
-        delta.input,
-        delta.output,
-        delta.cacheRead,
-        delta.cacheWrite,
-        delta.costUsd ?? 0,
-        id,
-      ],
-    );
-  })();
+  db.run(
+    `UPDATE runs SET
+       input_tokens       = input_tokens       + ?,
+       output_tokens      = output_tokens      + ?,
+       cache_read_tokens  = cache_read_tokens  + ?,
+       cache_write_tokens = cache_write_tokens + ?,
+       cost_usd           = cost_usd           + ?
+     WHERE id = ?`,
+    [
+      delta.input,
+      delta.output,
+      delta.cacheRead,
+      delta.cacheWrite,
+      delta.costUsd ?? 0,
+      id,
+    ],
+  );
 }
 
 export function incrementRunTurns(db: DB, id: string, by = 1): void {
