@@ -457,7 +457,7 @@ export async function handleRequest(
     const task = getTask(app.db, m.matrixRun.taskId);
     if (!task) return notFound();
     const runDir = join(app.runsRoot, runId);
-    const tmpl = getSetting(app.db, "judge_template") || DEFAULT_JUDGE_TEMPLATE
+    const tmpl = (getSetting(app.db, "judge_template") || DEFAULT_JUDGE_TEMPLATE)
       .replace("{task_name}", task.name)
       .replace("{task_prompt}", task.prompt)
       .replace("{test_command}", task.testCommand ?? "")
