@@ -66,6 +66,7 @@ export function launchMatrixRun(
       harness: cell.harness,
       providerId: cell.providerId,
       modelId: cell.modelId,
+      effort: cell.effort,
       worktreePath: "",
     });
     cellSpecs.push({

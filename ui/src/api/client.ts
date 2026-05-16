@@ -220,7 +220,7 @@ export const api = {
     );
   },
   async estimateRuns(
-    cells: Array<{ harness: string; providerId: string; modelId: string }>,
+    cells: Array<{ harness: string; providerId: string; modelId: string; effort?: string }>,
   ): Promise<MatrixEstimate> {
     return jsonOrThrow(
       await fetch("/api/runs/estimate", {

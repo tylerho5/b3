@@ -28,6 +28,7 @@ export interface Run {
   harness: string;
   providerId: string;
   modelId: string;
+  effort: string;
   worktreePath: string;
   sessionId: string | null;
   status: RunStatus;
@@ -61,6 +62,7 @@ interface RunRow {
   harness: string;
   provider_id: string;
   model_id: string;
+  effort: string;
   worktree_path: string;
   session_id: string | null;
   status: RunStatus;
@@ -97,6 +99,7 @@ function rowToRun(r: RunRow): Run {
     harness: r.harness,
     providerId: r.provider_id,
     modelId: r.model_id,
+    effort: r.effort,
     worktreePath: r.worktree_path,
     sessionId: r.session_id,
     status: r.status,
@@ -171,19 +174,21 @@ export function createRun(
     harness: string;
     providerId: string;
     modelId: string;
+    effort?: string;
     worktreePath: string;
   },
 ): string {
   const id = ulid();
   db.run(
-    `INSERT INTO runs (id, matrix_run_id, harness, provider_id, model_id, worktree_path, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+    `INSERT INTO runs (id, matrix_run_id, harness, provider_id, model_id, effort, worktree_path, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
     [
       id,
       input.matrixRunId,
       input.harness,
       input.providerId,
       input.modelId,
+      input.effort ?? "",
       input.worktreePath,
     ],
   );

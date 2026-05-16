@@ -173,6 +173,7 @@ export interface Run {
   harness: Harness;
   providerId: string;
   modelId: string;
+  effort: string;
   worktreePath: string;
   sessionId: string | null;
   status: RunStatus;

@@ -2,7 +2,7 @@ import "../styles/matrix-grid.css";
 import type { Harness, Run } from "../types/shared";
 import type { CellState } from "../hooks/useMatrixSelection";
 import { cellKey } from "../hooks/useMatrixSelection";
-import { modelKeyLabel } from "../lib/modelKey";
+import { encodeModelKey, modelKeyLabel } from "../lib/modelKey";
 
 export type CellRunState = "pending" | "running" | "success" | "error";
 
@@ -139,12 +139,12 @@ function LiveGrid({ runs, state, onCellClick }: Omit<LiveProps, "mode">) {
     );
   }
 
-  const models = Array.from(new Set(runs.map((r) => r.modelId)));
+  const models = Array.from(new Set(runs.map((r) => encodeModelKey(r.modelId, r.effort))));
   const harnesses = Array.from(new Set(runs.map((r) => r.harness))) as Harness[];
 
   const runByCell = new Map<string, Run>();
   for (const r of runs) {
-    runByCell.set(cellKey(r.modelId, r.harness), r);
+    runByCell.set(cellKey(encodeModelKey(r.modelId, r.effort), r.harness), r);
   }
 
   const displayHarnesses = harnesses.length === 0 ? ALL_HARNESSES : harnesses;
@@ -155,7 +155,7 @@ function LiveGrid({ runs, state, onCellClick }: Omit<LiveProps, "mode">) {
         {models.map((modelId) => (
           <div key={modelId} className="mg-row">
             <span className="mg-model-name mg-model-name-static">
-              {modelId.length > 28 ? modelId.slice(0, 28) + "…" : modelId}
+              {(() => { const d = modelKeyLabel(modelId); return d.length > 28 ? d.slice(0, 28) + "…" : d; })()}
             </span>
             <div className="mg-cells">
               {displayHarnesses.map((harness) => {
@@ -169,7 +169,7 @@ function LiveGrid({ runs, state, onCellClick }: Omit<LiveProps, "mode">) {
                     key={harness}
                     className={`mg-cell mg-live-cell`}
                     onClick={() => onCellClick?.(run.id)}
-                    title={`${modelId} · ${harness} · ${runState}`}
+                    title={`${modelKeyLabel(modelId)} · ${harness} · ${runState}`}
                   >
                     <LiveDot runState={runState} />
                   </div>

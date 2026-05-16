@@ -4,6 +4,7 @@ export interface EstimatorTriple {
   harness: string;
   providerId: string;
   modelId: string;
+  effort?: string;
 }
 
 export interface EstimatorResult {
@@ -23,7 +24,7 @@ export function estimateMatrix(
   const seen = new Set<string>();
   const dedup: EstimatorTriple[] = [];
   for (const t of triples) {
-    const key = `${t.harness}::${t.providerId}::${t.modelId}`;
+    const key = `${t.harness}::${t.providerId}::${t.modelId}::${t.effort ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     dedup.push(t);
@@ -32,16 +33,16 @@ export function estimateMatrix(
   const allDurations: number[] = [];
   let cellsWithHistory = 0;
 
-  const stmt = db.query<DurationRow, [string, string, string]>(
+  const stmt = db.query<DurationRow, [string, string, string, string]>(
     `SELECT started_at, completed_at FROM runs
-     WHERE harness = ? AND provider_id = ? AND model_id = ?
+     WHERE harness = ? AND provider_id = ? AND model_id = ? AND effort = ?
        AND started_at IS NOT NULL
        AND completed_at IS NOT NULL
        AND status IN ('passed', 'failed', 'error')`,
   );
 
   for (const t of dedup) {
-    const rows = stmt.all(t.harness, t.providerId, t.modelId);
+    const rows = stmt.all(t.harness, t.providerId, t.modelId, t.effort ?? "");
     if (rows.length === 0) continue;
     cellsWithHistory += 1;
     for (const row of rows) {

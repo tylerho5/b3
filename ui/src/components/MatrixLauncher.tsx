@@ -109,6 +109,7 @@ export function MatrixLauncher({
       harness: c.harness,
       providerId: c.providerId,
       modelId: c.modelId,
+      effort: c.effort || undefined,
     }));
     const handle = setTimeout(() => {
       void api
