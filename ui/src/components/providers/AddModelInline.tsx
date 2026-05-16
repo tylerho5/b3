@@ -31,6 +31,20 @@ function pricingRequired(kind: ProviderKind): boolean {
   return kind === "anthropic_api_direct" || kind === "openai_api_direct";
 }
 
+function validateModelId(v: string): boolean {
+  return v.trim() !== "";
+}
+
+function validatePricing(kind: ProviderKind, inputCost: string, outputCost: string): boolean {
+  if (!showPricing(kind)) return true;
+  if (!pricingRequired(kind)) return true;
+  return inputCost.trim() !== "" && outputCost.trim() !== "";
+}
+
+function validateNumberField(v: string): boolean {
+  return v.trim() === "" || !isNaN(Number(v));
+}
+
 export function AddModelInline({ providerId, providerKind, onAdded, onCancel }: Props) {
   const [modelId, setModelId] = useState("");
   const [contextLength, setContextLength] = useState("");
@@ -40,12 +54,11 @@ export function AddModelInline({ providerId, providerKind, onAdded, onCancel }: 
   const [error, setError] = useState<string | null>(null);
 
   const valid =
-    modelId.trim() !== "" &&
-    (!showPricing(providerKind) ||
-      (!pricingRequired(providerKind) || (inputCost.trim() && outputCost.trim()))) &&
-    (!showContextLength(providerKind) || !contextLength.trim() || !isNaN(Number(contextLength))) &&
-    (!showPricing(providerKind) || !inputCost.trim() || !isNaN(Number(inputCost))) &&
-    (!showPricing(providerKind) || !outputCost.trim() || !isNaN(Number(outputCost)));
+    validateModelId(modelId) &&
+    validatePricing(providerKind, inputCost, outputCost) &&
+    (!showContextLength(providerKind) || validateNumberField(contextLength)) &&
+    (!showPricing(providerKind) || validateNumberField(inputCost)) &&
+    (!showPricing(providerKind) || validateNumberField(outputCost));
 
   const submit = async () => {
     setSaving(true);

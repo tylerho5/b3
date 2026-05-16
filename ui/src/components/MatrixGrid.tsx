@@ -155,7 +155,7 @@ function LiveGrid({ runs, state, onCellClick }: Omit<LiveProps, "mode">) {
         {models.map((modelId) => (
           <div key={modelId} className="mg-row">
             <span className="mg-model-name mg-model-name-static">
-              {(() => { const d = modelKeyLabel(modelId); return d.length > 28 ? d.slice(0, 28) + "…" : d; })()}
+              {(() => { const d = modelKeyLabel(modelId); return d.length > 32 ? d.slice(0, 32) + "…" : d; })()}
             </span>
             <div className="mg-cells">
               {displayHarnesses.map((harness) => {

@@ -73,7 +73,7 @@
   flex-shrink: 0;
   font-size: 9px;
   color: var(--text-muted);
-  background: var(--tertiary-bg);
+  background: var(--bg-tertiary);
   border-radius: 3px;
   padding: 1px 4px;
   letter-spacing: 0.02em;

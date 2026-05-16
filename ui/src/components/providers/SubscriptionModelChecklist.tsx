@@ -29,6 +29,7 @@ export function SubscriptionModelChecklist({
   const [status, setStatus] = useState<string | null>(null);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const applyDefaultsRunning = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -86,6 +87,9 @@ export function SubscriptionModelChecklist({
   };
 
   const applyDefaults = async () => {
+    if (applyDefaultsRunning.current) return;
+    applyDefaultsRunning.current = true;
+
     // Remove all existing effort levels for curated models, then re-add
     // the recommended ones. This is a reset, not an additive operation.
     const toRemove = models.filter(
@@ -120,6 +124,7 @@ export function SubscriptionModelChecklist({
         busyTimer.current = null;
       }
       setBusy(null);
+      applyDefaultsRunning.current = false;
     }
   };
 

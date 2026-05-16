@@ -141,6 +141,7 @@ export function Runs() {
     if (!taskId || launchMatrix.length === 0) return;
     setLaunching(true);
     setError(null);
+    setSelectedRunIds(new Set());
     try {
       const r = await api.launch({
         taskId,
@@ -148,7 +149,6 @@ export function Runs() {
         skillIds: Array.from(skillSel),
       });
       setActiveId(r.matrixRunId);
-      setSelectedRunIds(new Set());
       void refreshHistory();
     } catch (e) {
       setError((e as Error).message);
@@ -308,20 +308,7 @@ export function Runs() {
         </div>
       </div>
 
-      {error && (
-        <div
-          style={{
-            padding: 12,
-            background: "rgba(220,53,69,0.10)",
-            border: "1px solid rgba(220,53,69,0.30)",
-            color: "var(--error)",
-            borderRadius: 6,
-            fontSize: 12,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div className="callout-error">{error}</div>}
 
       {/* ── Active run area ─────────────────────────────── */}
       {activeId && activeCells.length > 0 && (

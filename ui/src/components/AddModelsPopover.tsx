@@ -13,6 +13,115 @@ interface ModelGroup {
   efforts: string[]; // empty = no effort variants (API model)
 }
 
+interface ModelGroupRowProps {
+  group: ModelGroup;
+  selectedModels: Set<string>;
+  collapsedModels: Set<string>;
+  routeLabel: string;
+  onToggleModel: (modelKey: string) => void;
+  onToggleGroup: (group: ModelGroup) => void;
+  onToggleExpanded: (modelId: string) => void;
+}
+
+function ModelGroupRow({
+  group,
+  selectedModels,
+  collapsedModels,
+  routeLabel,
+  onToggleModel,
+  onToggleGroup,
+  onToggleExpanded,
+}: ModelGroupRowProps) {
+  if (group.efforts.length === 0) {
+    const checked = selectedModels.has(group.modelId);
+    return (
+      <label className="add-models-model-row" onClick={() => onToggleModel(group.modelId)}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => onToggleModel(group.modelId)}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <span className="add-models-model-name" title={group.modelId}>
+          {group.modelId}
+        </span>
+        <span className="add-models-route-label">{routeLabel}</span>
+      </label>
+    );
+  }
+
+  if (group.efforts.length === 1) {
+    const key = encodeModelKey(group.modelId, group.efforts[0]);
+    const checked = selectedModels.has(key);
+    return (
+      <label className="add-models-model-row" onClick={() => onToggleModel(key)}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => onToggleModel(key)}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <span className="add-models-model-name" title={key}>
+          {group.modelId} · {group.efforts[0]}
+        </span>
+        <span className="add-models-route-label">{routeLabel}</span>
+      </label>
+    );
+  }
+
+  const keys = group.efforts.map((e) => encodeModelKey(group.modelId, e));
+  const selectedCount = keys.filter((k) => selectedModels.has(k)).length;
+  const allSelected = selectedCount === keys.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+  const isExpanded = !collapsedModels.has(group.modelId);
+
+  return (
+    <div>
+      <div className="add-models-model-row">
+        <input
+          type="checkbox"
+          checked={allSelected}
+          ref={(el) => { if (el) el.indeterminate = someSelected; }}
+          onChange={() => onToggleGroup(group)}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <button
+          type="button"
+          className="add-models-expand-btn"
+          onClick={() => onToggleExpanded(group.modelId)}
+          aria-label={isExpanded ? "collapse" : "expand"}
+        >
+          {isExpanded ? "▼" : "▶"}
+        </button>
+        <span className="add-models-model-name" title={group.modelId}>
+          {group.modelId}
+        </span>
+        <span className="add-models-route-label">{routeLabel}</span>
+      </div>
+      {isExpanded &&
+        group.efforts.map((effort) => {
+          const key = encodeModelKey(group.modelId, effort);
+          const checked = selectedModels.has(key);
+          return (
+            <label
+              key={effort}
+              className="add-models-model-row add-models-effort-row"
+              onClick={() => onToggleModel(key)}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggleModel(key)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="add-models-effort-label">{effort}</span>
+            </label>
+          );
+        })}
+    </div>
+  );
+}
+
 interface AddModelsPopoverProps {
   providers: Provider[];
   providerModels: ProviderModel[];
@@ -153,100 +262,6 @@ export function AddModelsPopover({
       .sort((a, b) => a.modelId.localeCompare(b.modelId));
   }, [recents, search]);
 
-  function GroupRow({ group }: { group: ModelGroup }) {
-    const label = defaultRouteLabel(group.modelId);
-
-    if (group.efforts.length === 0) {
-      const checked = selectedModels.has(group.modelId);
-      return (
-        <label className="add-models-model-row" onClick={() => toggleModel(group.modelId)}>
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => toggleModel(group.modelId)}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <span className="add-models-model-name" title={group.modelId}>
-            {group.modelId}
-          </span>
-          <span className="add-models-route-label">{label}</span>
-        </label>
-      );
-    }
-
-    // Single effort — show inline as "modelId · effort", no expand needed
-    if (group.efforts.length === 1) {
-      const key = encodeModelKey(group.modelId, group.efforts[0]);
-      const checked = selectedModels.has(key);
-      return (
-        <label className="add-models-model-row" onClick={() => toggleModel(key)}>
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => toggleModel(key)}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <span className="add-models-model-name" title={key}>
-            {group.modelId} · {group.efforts[0]}
-          </span>
-          <span className="add-models-route-label">{label}</span>
-        </label>
-      );
-    }
-
-    const keys = group.efforts.map((e) => encodeModelKey(group.modelId, e));
-    const selectedCount = keys.filter((k) => selectedModels.has(k)).length;
-    const allSelected = selectedCount === keys.length;
-    const someSelected = selectedCount > 0 && !allSelected;
-    const isExpanded = !collapsedModels.has(group.modelId);
-
-    return (
-      <div>
-        <div className="add-models-model-row">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            ref={(el) => { if (el) el.indeterminate = someSelected; }}
-            onChange={() => toggleGroup(group)}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            type="button"
-            className="add-models-expand-btn"
-            onClick={() => toggleExpanded(group.modelId)}
-            aria-label={isExpanded ? "collapse" : "expand"}
-          >
-            {isExpanded ? "▼" : "▶"}
-          </button>
-          <span className="add-models-model-name" title={group.modelId}>
-            {group.modelId}
-          </span>
-          <span className="add-models-route-label">{label}</span>
-        </div>
-        {isExpanded &&
-          group.efforts.map((effort) => {
-            const key = encodeModelKey(group.modelId, effort);
-            const checked = selectedModels.has(key);
-            return (
-              <label
-                key={effort}
-                className="add-models-model-row add-models-effort-row"
-                onClick={() => toggleModel(key)}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleModel(key)}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span className="add-models-effort-label">{effort}</span>
-              </label>
-            );
-          })}
-      </div>
-    );
-  }
-
   return (
     <div className="add-models-popover" ref={popRef}>
       <div className="add-models-tabs">
@@ -280,7 +295,18 @@ export function AddModelsPopover({
             {recentGroups.length === 0 ? (
               <div className="add-models-empty">no recent models</div>
             ) : (
-              recentGroups.map((g) => <GroupRow key={g.modelId} group={g} />)
+              recentGroups.map((g) => (
+                <ModelGroupRow
+                  key={g.modelId}
+                  group={g}
+                  selectedModels={selectedModels}
+                  collapsedModels={collapsedModels}
+                  routeLabel={defaultRouteLabel(g.modelId)}
+                  onToggleModel={toggleModel}
+                  onToggleGroup={toggleGroup}
+                  onToggleExpanded={toggleExpanded}
+                />
+              ))
             )}
           </>
         )}
@@ -308,7 +334,18 @@ export function AddModelsPopover({
                       <span>{isCollapsed ? "▶" : "▾"}</span>
                       <span>{family}</span>
                     </div>
-                    {!isCollapsed && groups.map((g) => <GroupRow key={g.modelId} group={g} />)}
+                    {!isCollapsed && groups.map((g) => (
+                      <ModelGroupRow
+                        key={g.modelId}
+                        group={g}
+                        selectedModels={selectedModels}
+                        collapsedModels={collapsedModels}
+                        routeLabel={defaultRouteLabel(g.modelId)}
+                        onToggleModel={toggleModel}
+                        onToggleGroup={toggleGroup}
+                        onToggleExpanded={toggleExpanded}
+                      />
+                    ))}
                   </div>
                 );
               })

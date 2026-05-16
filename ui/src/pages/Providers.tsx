@@ -71,6 +71,10 @@ export function Providers() {
     void refresh();
   };
 
+  const claudeSub = byKind.get("claude_subscription");
+  const codexSub = byKind.get("codex_subscription");
+  const openrouter = byKind.get("openrouter");
+
   return (
     <div className="providers-page-v2">
       {error && <div className="callout-error">{error}</div>}
@@ -86,45 +90,33 @@ export function Providers() {
 
       <div className="provider-list">
         {/* Claude Code subscription (ghost row if not added) */}
-        {(!byKind.has("claude_subscription") || byKind.get("claude_subscription")) && (
+        {(!byKind.has("claude_subscription") || claudeSub) && (
           <ProviderRow
-            provider={byKind.get("claude_subscription") ?? null}
+            provider={claudeSub ?? null}
             kind="claude_subscription"
-            models={
-              byKind.get("claude_subscription")
-                ? modelsByProvider.get(byKind.get("claude_subscription")!.id) ?? []
-                : []
-            }
+            models={claudeSub ? modelsByProvider.get(claudeSub.id) ?? [] : []}
             subscriptionStatus={claudeStatus}
             onChanged={onChanged}
           />
         )}
 
         {/* Codex subscription (ghost row if not added) */}
-        {(!byKind.has("codex_subscription") || byKind.get("codex_subscription")) && (
+        {(!byKind.has("codex_subscription") || codexSub) && (
           <ProviderRow
-            provider={byKind.get("codex_subscription") ?? null}
+            provider={codexSub ?? null}
             kind="codex_subscription"
-            models={
-              byKind.get("codex_subscription")
-                ? modelsByProvider.get(byKind.get("codex_subscription")!.id) ?? []
-                : []
-            }
+            models={codexSub ? modelsByProvider.get(codexSub.id) ?? [] : []}
             subscriptionStatus={codexStatus}
             onChanged={onChanged}
           />
         )}
 
         {/* OpenRouter */}
-        {(!byKind.has("openrouter") || byKind.get("openrouter")) && (
+        {(!byKind.has("openrouter") || openrouter) && (
           <ProviderRow
-            provider={byKind.get("openrouter") ?? null}
+            provider={openrouter ?? null}
             kind="openrouter"
-            models={
-              byKind.get("openrouter")
-                ? modelsByProvider.get(byKind.get("openrouter")!.id) ?? []
-                : []
-            }
+            models={openrouter ? modelsByProvider.get(openrouter.id) ?? [] : []}
             onChanged={onChanged}
           />
         )}

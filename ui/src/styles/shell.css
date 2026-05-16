@@ -85,6 +85,15 @@
   color: var(--text-muted);
 }
 
+.callout-error {
+  padding: 10px 12px;
+  background: rgba(220, 53, 69, 0.10);
+  border: 1px solid rgba(220, 53, 69, 0.30);
+  border-radius: 6px;
+  color: var(--error);
+  font-size: 12px;
+}
+
 button.primary {
   background: var(--accent);
   color: #fff;
