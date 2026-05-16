@@ -86,6 +86,51 @@ test("pin for different harness does not affect resolution", () => {
   })).toBe("cc-sub");
 });
 
+test("effort-specific pin is used when effort matches", () => {
+  const providers = [ccSub, anthro];
+  const models = [
+    pm("claude-opus-4-7", "cc-sub", "high"),
+    pm("claude-opus-4-7", "anthro", "high"),
+  ];
+  // Pin stored under effort-qualified key should be found
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", effort: "high", harness: "claude_code",
+    providers, providerModels: models,
+    pins: { "claude-opus-4-7::high": { claude_code: "anthro" } },
+  })).toBe("anthro");
+});
+
+test("effort-specific pin falls back to bare modelName pin", () => {
+  const providers = [ccSub, anthro];
+  const models = [
+    pm("claude-opus-4-7", "cc-sub", "high"),
+    pm("claude-opus-4-7", "anthro", "high"),
+  ];
+  // No effort-qualified pin, but bare modelName pin exists
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", effort: "high", harness: "claude_code",
+    providers, providerModels: models,
+    pins: { "claude-opus-4-7": { claude_code: "anthro" } },
+  })).toBe("anthro");
+});
+
+test("effort-specific pin takes precedence over bare modelName pin", () => {
+  const providers = [ccSub, anthro];
+  const models = [
+    pm("claude-opus-4-7", "cc-sub", "high"),
+    pm("claude-opus-4-7", "anthro", "high"),
+  ];
+  // Both pins exist — effort-specific should win
+  expect(resolveRoute({
+    modelName: "claude-opus-4-7", effort: "high", harness: "claude_code",
+    providers, providerModels: models,
+    pins: {
+      "claude-opus-4-7::high": { claude_code: "anthro" },
+      "claude-opus-4-7": { claude_code: "cc-sub" },
+    },
+  })).toBe("anthro");
+});
+
 test("missing pin falls back to tier order", () => {
   const providers = [ccSub, anthro];
   const models = [pm("m", "cc-sub"), pm("m", "anthro")];

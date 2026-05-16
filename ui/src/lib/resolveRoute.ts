@@ -48,7 +48,8 @@ export function resolveRoute({
 
   if (eligible.length === 0) return null;
 
-  const pinnedId = pins[modelName]?.[harness];
+  const effortKey = effort ? `${modelName}::${effort}` : null;
+  const pinnedId = (effortKey ? pins[effortKey]?.[harness] : undefined) ?? pins[modelName]?.[harness];
   if (pinnedId) {
     const pinned = eligible.find((p) => p.id === pinnedId);
     if (pinned) return pinned.id;

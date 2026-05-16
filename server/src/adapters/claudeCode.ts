@@ -55,6 +55,9 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       "--model",
       input.model.modelId,
     ];
+    if (input.model.effort) {
+      args.push("--effort", input.model.effort);
+    }
 
     const proc = spawn("claude", args, {
       cwd: input.workdir,

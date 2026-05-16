@@ -50,6 +50,9 @@ export class CodexAdapter implements HarnessAdapter {
       "-m",
       input.model.modelId,
     ];
+    if (input.model.effort) {
+      args.push("-c", `model_reasoning_effort=${input.model.effort}`);
+    }
     args.push(input.initialPrompt);
 
     const proc = spawn("codex", args, {
