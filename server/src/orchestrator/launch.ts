@@ -4,6 +4,7 @@ import {
   updateRunStatus,
 } from "../db/runs";
 import { getProvider, type Harness, type Provider } from "../db/providers";
+import { supportedHarnesses } from "../providers/kinds";
 import {
   getProviderModel,
   type ProviderModel,
@@ -54,6 +55,11 @@ export function launchMatrixRun(
     const provider = getProvider(app.db, cell.providerId);
     if (!provider) {
       throw new Error(`Provider not found: ${cell.providerId}`);
+    }
+    if (!supportedHarnesses(provider.kind).includes(cell.harness)) {
+      throw new Error(
+        `Provider ${provider.name} (${provider.kind}) does not support harness ${cell.harness}`,
+      );
     }
     const model = getProviderModel(app.db, cell.providerId, cell.modelId, cell.effort);
     if (!model) {
