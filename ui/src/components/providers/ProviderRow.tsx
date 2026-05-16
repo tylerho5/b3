@@ -9,6 +9,7 @@ import type {
 import { ProviderModelList } from "./ProviderModelList";
 import { AddModelInline } from "./AddModelInline";
 import { SubscriptionModelChecklist } from "./SubscriptionModelChecklist";
+import { OpenRouterCatalogModal } from "./OpenRouterCatalogModal";
 
 const KIND_LABEL: Record<ProviderKind, string> = {
   claude_subscription: "Claude Code",
@@ -78,6 +79,7 @@ export function ProviderRow({
   const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showAddModel, setShowAddModel] = useState(false);
+  const [showCatalog, setShowCatalog] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const name = provider?.name ?? KIND_LABEL[kind];
@@ -191,7 +193,7 @@ export function ProviderRow({
           )}
 
           {provider && kind === "openrouter" && (
-            <button type="button" className="secondary">
+            <button type="button" className="secondary" onClick={() => setShowCatalog(true)}>
               browse catalog
             </button>
           )}
@@ -286,6 +288,14 @@ export function ProviderRow({
             </div>
           )}
         </div>
+      )}
+      {showCatalog && provider && (
+        <OpenRouterCatalogModal
+          provider={provider}
+          existingModelIds={new Set(models.map((m) => m.modelId))}
+          onClose={() => setShowCatalog(false)}
+          onSaved={onChanged}
+        />
       )}
     </div>
   );
